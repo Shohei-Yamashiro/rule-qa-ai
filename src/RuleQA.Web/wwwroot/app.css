@@ -153,6 +153,36 @@ h1:focus {
     background: var(--neutral-layer-2);
 }
 
+.badge {
+    display: inline-block;
+    padding: 0 8px;
+    margin-left: 4px;
+    border-radius: 10px;
+    font-size: 11px;
+    background: #eceef1;
+    color: #616161;
+}
+
+.badge-old { background: #fde7e9; color: #b10e1c; }
+
+.eval-table {
+    border-collapse: collapse;
+    font-size: 13px;
+    margin: 10px 0 12px;
+    width: 100%;
+}
+
+.eval-table td, .eval-table th {
+    padding: 4px 14px 4px 0;
+    border-bottom: 1px solid #eceef1;
+    text-align: left;
+    vertical-align: top;
+}
+
+.eval-table td:nth-child(n+3), .eval-table th:nth-child(n+3) {
+    white-space: nowrap;
+}
+
 .test-result {
     white-space: pre-wrap;
     font-family: Consolas, monospace;

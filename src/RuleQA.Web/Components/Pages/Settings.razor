@@ -1,6 +1,8 @@
 @page "/settings"
 @inject SettingsStore Store
 @inject AiConnectionTester Tester
+@inject RuleImporter Importer
+@inject RuleSearchService Search
 @inject IToastService Toast
 
 <PageTitle>設定</PageTitle>
@@ -67,6 +69,82 @@
         }
     </section>
 
+    <section class="panel" id="rules">
+        <h3>規則の取り込み</h3>
+        <p class="sub">フォルダの中の .md と .txt（サブフォルダを含む）を「第○条」ごとに分けて取り込みます。条のない文書は見出しか段落で分けます。2 回目からは内容が変わったファイルだけを取り込み直します。同じ規程名の文書が複数あれば、施行日・改定日が最も新しいものを最新版とし、それ以外と「廃止」「旧版」と書かれたものは旧版として扱います。</p>
+        <div class="row">
+            <div class="field wide">
+                <FluentTextField Label="フォルダ（相対パスはアプリの場所から）" @bind-Value="_s.Rules.Folder" />
+                <div class="sub">@Importer.ResolveFolder(_s.Rules.Folder)</div>
+            </div>
+        </div>
+        <div class="actions" style="margin-top: 0">
+            <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowImport())" Disabled="_rulesBusy" OnClick="ImportAsync">取り込む</FluentButton>
+            <span class="sub" style="align-self: center">@StatsText</span>
+        </div>
+        @if (_importWarnings is { Count: > 0 })
+        {
+            <div class="test-result">@string.Join("\n", _importWarnings)</div>
+        }
+
+        <h4>検索</h4>
+        <div class="row">
+            <div class="field"><FluentNumberField TValue="int" Label="候補にする条文の数（AI に渡す数）" @bind-Value="_s.Rules.CandidateCount" Min="1" Max="20" /></div>
+            <div class="field" style="align-self: end"><FluentSwitch Label="旧版も検索する" @bind-Value="_s.Rules.IncludeSuperseded" /></div>
+        </div>
+        <p class="sub">キーワード（文字の並び）で検索します。埋め込みモデルを設定してベクトルを作ると、意味の近さでの検索も合わせます。FAQ などの参考資料は、規程より下に並びます。</p>
+        @if (_s.Ai.Provider == AiProvider.OpenAiCompatible && !string.IsNullOrWhiteSpace(_s.Ai.EmbeddingModel))
+        {
+            <div class="actions" style="margin-top: 0">
+                <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.DataUsage())" Disabled="_rulesBusy" OnClick="BuildVectorsAsync">ベクトルを作成</FluentButton>
+                @if (_rulesBusy && _progress is not null)
+                {
+                    <FluentProgressRing Width="16px" Style="align-self: center" />
+                    <span class="sub" style="align-self: center">@_progress</span>
+                }
+            </div>
+        }
+
+        <h4>試しに検索</h4>
+        <div class="row">
+            <div class="field wide"><FluentTextField Label="質問" Placeholder="例: 国内出張の日当はいくら？" Immediate="true" @bind-Value="_searchText" @onkeydown="SearchOnEnterAsync" /></div>
+        </div>
+        <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.Search())" Disabled="@(_rulesBusy || string.IsNullOrWhiteSpace(_searchText))" OnClick="SearchAsync">検索</FluentButton>
+        @if (_hits is not null)
+        {
+            if (_hits.Count == 0)
+            {
+                <p class="sub">候補は見つかりませんでした。</p>
+            }
+            else
+            {
+                <table class="eval-table">
+                    <tr><th>順位</th><th>条文</th><th>キーワード</th><th>意味（ベクトル）</th></tr>
+                    @foreach (var (h, i) in _hits.Select((h, i) => (h, i)))
+                    {
+                        <tr>
+                            <td>@(i + 1)</td>
+                            <td>
+                                @h.Article.DisplayName
+                                @if (h.Article.Document.IsSuperseded)
+                                {
+                                    <span class="badge badge-old">旧版</span>
+                                }
+                                @if (h.Article.Document.Kind == DocumentKind.Reference)
+                                {
+                                    <span class="badge">参考資料</span>
+                                }
+                                <div class="sub">@Preview(h.Article.Body)</div>
+                            </td>
+                            <td>@h.Keyword.ToString("0.0")</td>
+                            <td>@(h.Vector?.ToString("0.00") ?? "－")</td>
+                        </tr>
+                    }
+                </table>
+            }
+        }
+    </section>
+
     <p class="sub">API キーは Windows のユーザーごとに暗号化して保存します。</p>
 </div>
 
@@ -88,7 +166,93 @@
     private bool _testing;
     private string? _testResult;
 
-    protected override void OnInitialized() => _s = Store.Current;
+    private bool _rulesBusy;
+    private string? _progress;
+    private LibraryStats? _stats;
+    private IReadOnlyList<string>? _importWarnings;
+    private string? _searchText;
+    private IReadOnlyList<ArticleHit>? _hits;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _s = Store.Current;
+        await RefreshStatsAsync();
+    }
+
+    private string StatsText => _stats is not { } s ? "…"
+        : s.Documents == 0 ? "まだ取り込んでいません。"
+        : $"規程 {s.Documents} 件（うち旧版 {s.Superseded}・参考資料 {s.References}）・条文 {s.Articles} 件"
+          + (_s.Ai.Provider == AiProvider.OpenAiCompatible && !string.IsNullOrWhiteSpace(_s.Ai.EmbeddingModel) ? $"・ベクトル作成済み {s.Embedded} 件" : "");
+
+    private async Task RefreshStatsAsync() => _stats = await Importer.StatsAsync(_s.Ai.EmbeddingModel);
+
+    private async Task ImportAsync()
+    {
+        _rulesBusy = true;
+        try
+        {
+            var r = await Importer.ImportFolderAsync(_s.Rules.Folder);
+            _importWarnings = r.Warnings;
+            var summary = $"追加 {r.Added}・更新 {r.Updated}・削除 {r.Removed}・変更なし {r.Unchanged}";
+            if (r.Changed == 0 && r.Unchanged == 0) Toast.ShowError("取り込めませんでした。" + string.Join(" ", r.Warnings));
+            else Toast.ShowSuccess($"取り込みました（{summary}）。" + (r.KeptVectors > 0 ? $"作成済みのベクトル {r.KeptVectors} 件はそのまま使います。" : ""));
+            _hits = null;
+        }
+        finally
+        {
+            _rulesBusy = false;
+            await RefreshStatsAsync();
+        }
+    }
+
+    private async Task BuildVectorsAsync()
+    {
+        _rulesBusy = true;
+        var progress = new Progress<string>(p =>
+        {
+            _progress = p;
+            StateHasChanged();
+        });
+        try
+        {
+            var count = await Search.BuildEmbeddingsAsync(_s.Copy().Ai, progress);
+            Toast.ShowSuccess(count == 0 ? "すべての条文のベクトルを作成済みです。" : $"{count} 件のベクトルを作成しました。設定を保存すると質問で使います。");
+        }
+        catch (Exception e)
+        {
+            Toast.ShowError("ベクトルを作成できませんでした: " + e.Message);
+        }
+        finally
+        {
+            _rulesBusy = false;
+            _progress = null;
+            await RefreshStatsAsync();
+        }
+    }
+
+    private async Task SearchOnEnterAsync(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(_searchText)) await SearchAsync();
+    }
+
+    private async Task SearchAsync()
+    {
+        _rulesBusy = true;
+        try
+        {
+            _hits = await Search.SearchAsync(_searchText ?? "", _s.Copy());
+        }
+        finally
+        {
+            _rulesBusy = false;
+        }
+    }
+
+    private static string Preview(string body)
+    {
+        var line = body.Replace('\n', ' ');
+        return line.Length > 80 ? line[..80] + "…" : line;
+    }
 
     private void ApplyPreset(Preset p)
     {
@@ -100,6 +264,7 @@
     private void Save()
     {
         _s.Ai.TimeoutSeconds = Math.Max(5, _s.Ai.TimeoutSeconds);
+        _s.Rules.CandidateCount = Math.Clamp(_s.Rules.CandidateCount, 1, RuleSearchService.MaxCandidates);
         Store.Save(_s);
         Toast.ShowSuccess("設定を保存しました。");
     }

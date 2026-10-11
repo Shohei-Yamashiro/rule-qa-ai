@@ -162,7 +162,8 @@ static string Document(List<Spec> specs, Dictionary<string, List<CaseResult>>? r
     sb.AppendLine("## 1. 目的と範囲");
     sb.AppendLine();
     sb.AppendLine("業務ロジック（`src/RuleQA.Core`）が仕様どおりに動くことを、自動テスト（xUnit）で確認します。");
-    sb.AppendLine("AI の接続先は偽の HTTP サーバーに置き換え、ファイルはテストごとの一時フォルダに作るので、外部の環境がなくても同じ結果になります。");
+    sb.AppendLine("AI の接続先は偽の HTTP サーバーに置き換え、DB はテストごとに一時フォルダの SQLite を使うので、外部の環境がなくても同じ結果になります。");
+    sb.AppendLine("テストデータには `samples/rules` の架空の規則 8 ファイル（旧版・書式の違い・規程どうしの矛盾を含む）と、評価用の質問セット `samples/questions.json` を使います。");
     sb.AppendLine();
     sb.AppendLine("### 自動テストの対象外（手動で確認する項目）");
     sb.AppendLine();

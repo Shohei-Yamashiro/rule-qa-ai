@@ -17,6 +17,7 @@ public enum AiProvider
 public sealed class AppSettings
 {
     public AiSettings Ai { get; set; } = new();
+    public RulesSettings Rules { get; set; } = new();
 
     public AppSettings Copy() => JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(this))!;
 }
@@ -32,6 +33,18 @@ public sealed class AiSettings
 
     /// <summary>Embedding model on the same endpoint for article search; empty uses keyword search only.</summary>
     public string EmbeddingModel { get; set; } = "";
+}
+
+public sealed class RulesSettings
+{
+    /// <summary>Folder of .md and .txt files; relative paths are resolved against the app folder.</summary>
+    public string Folder { get; set; } = "samples/rules";
+
+    /// <summary>How many articles a search returns (and are sent to the AI).</summary>
+    public int CandidateCount { get; set; } = 6;
+
+    /// <summary>Also search old versions and abolished regulations.</summary>
+    public bool IncludeSuperseded { get; set; }
 }
 
 /// <summary>Persists settings as JSON; secrets are encrypted for the current Windows user.</summary>

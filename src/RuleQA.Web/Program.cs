@@ -1,7 +1,11 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.FluentUI.AspNetCore.Components;
 using RuleQA.Core;
+using RuleQA.Core.Data;
+using RuleQA.Core.Rules;
+using RuleQA.Core.Settings;
 using RuleQA.Web.Components;
 
 var builder = WebApplication.CreateBuilder(new WebApplicationOptions
@@ -17,9 +21,16 @@ var dataProtection = builder.Services.AddDataProtection()
 if (OperatingSystem.IsWindows()) dataProtection.ProtectKeysWithDpapi();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddFluentUIComponents();
-builder.Services.AddRuleQaCore(dataDirectory);
+builder.Services.AddRuleQaCore(dataDirectory, AppContext.BaseDirectory);
 
 var app = builder.Build();
+
+using (var db = app.Services.GetRequiredService<IDbContextFactory<RuleQaDbContext>>().CreateDbContext())
+{
+    db.EnsureSchema();
+}
+await app.Services.GetRequiredService<RuleImporter>()
+    .ImportIfEmptyAsync(app.Services.GetRequiredService<SettingsStore>().Current.Rules);
 
 if (!app.Environment.IsDevelopment())
 {

@@ -31,6 +31,8 @@ public static class ServiceCollectionExtensions
             sp.GetRequiredService<ILogger<RuleImporter>>()));
         services.AddSingleton<RuleSearchService>();
         services.AddSingleton<RuleAnswerService>();
+        services.AddSingleton<QaHistory>();
+        services.AddSingleton<RuleLibrary>();
         services.AddSingleton<SearchEvaluator>();
         return services;
     }

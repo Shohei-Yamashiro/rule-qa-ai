@@ -10,21 +10,6 @@ using RuleQA.Core.Settings;
 
 namespace RuleQA.Core.Answering;
 
-public enum AnswerStatus
-{
-    /// <summary>The AI answered from the cited articles.</summary>
-    Answered,
-
-    /// <summary>The rules do not cover the question (the AI said so, or cited nothing valid).</summary>
-    NotInRules,
-
-    /// <summary>No AI is set or it failed; the candidates are shown as they are.</summary>
-    SearchOnly,
-
-    /// <summary>The AI judged that the question has nothing to do with the company or work (weather, news, small talk ...).</summary>
-    OffTopic,
-}
-
 /// <summary>An earlier question and the answer text shown for it.</summary>
 public sealed record ConversationTurn(string Question, string Answer);
 
@@ -62,7 +47,7 @@ public sealed partial class RuleAnswerService(RuleSearchService search, AiClient
         - 「候補の条文」に書かれていることだけを根拠に答える。候補にないことは、一般論や推測で補わない。
         - 根拠にした条文の ID を citations に入れる。ID は条文の前の [ ] の中の「A1」「A2」などで、規程名や条番号ではない。回答文には ID ではなく規程名と条番号を書く。
         - 候補の条文に答えが書かれていなければ、answered を false、citations を空にする。
-        - off_topic は、質問が会社や仕事とまったく関係がない（天気、ニュース、一般的な知識、雑談、飲食店など）ときだけ true にする。給与・賞与・退職金・福利厚生・社内行事・人事・勤怠・設備など、会社や仕事についての質問は、候補に答えがなくても off_topic を false にする（そのときは answered を false にする）。
+        - off_topic は、質問が会社や仕事とまったく関係がない（天気、ニュース、一般的な知識、雑談、飲食店など）ときだけ true にする。「取り込んだ規程」の名前に関係する質問や、給与・賞与・退職金・福利厚生・社内行事・人事・勤怠・設備など、会社や仕事についての質問は、候補に答えがなくても off_topic を false にする（そのときは answered を false にする）。
         - 規程どうしで内容が食い違うときは、両方の条文を citations に入れ、食い違っていることを回答に書く。どちらを優先するかの定めが候補の条文にあれば、それに従って結論を書く。
         - 〔参考資料〕の文書より規程を優先する。参考資料と規程が食い違うときは規程に従い、参考資料だけが根拠のときはそのことを書く。
         - 〔旧版〕の条文は、今の取り扱いの根拠にしない。過去の取り扱いを聞かれたときだけ使う。
@@ -75,7 +60,7 @@ public sealed partial class RuleAnswerService(RuleSearchService search, AiClient
     public static string OffTopicText(IReadOnlyList<string> titles)
     {
         var shown = titles.Take(6).ToList();
-        var list = shown.Count == 0 ? "" : $"（{string.Join("・", shown)}{(titles.Count > shown.Count ? " など" : "")}）";
+        var list = shown.Count == 0 ? "" : $"（{string.Join("・", shown)}{(titles.Count > shown.Count ? $" など {titles.Count} 件" : "")}）";
         return $"社内規則についての質問ではないようです。取り込んだ規則{list}に関することを質問してください。";
     }
 
@@ -112,7 +97,7 @@ public sealed partial class RuleAnswerService(RuleSearchService search, AiClient
         AiAnswer reply;
         try
         {
-            reply = await chat.CompleteJsonAsync(BuildMessages(question, recent, candidates), Format, Parse, ct);
+            reply = await chat.CompleteJsonAsync(BuildMessages(question, recent, candidates, rules.Index.Titles), Format, Parse, ct);
         }
         catch (Exception e) when (e is AiConnectionException or FormatException)
         {
@@ -159,9 +144,16 @@ public sealed partial class RuleAnswerService(RuleSearchService search, AiClient
         return fused.Values.OrderByDescending(f => f.Score).Take(rules.CandidateCount).Select(f => f.Hit with { Score = f.Score }).ToList();
     }
 
-    public static List<ChatMessage> BuildMessages(string question, IReadOnlyList<ConversationTurn> history, IReadOnlyList<ArticleHit> candidates)
+    /// <param name="titles">The current regulations, so the AI knows the scope of the rules when judging off-topic questions.</param>
+    public static List<ChatMessage> BuildMessages(string question, IReadOnlyList<ConversationTurn> history, IReadOnlyList<ArticleHit> candidates, IReadOnlyList<string> titles)
     {
         var sb = new StringBuilder();
+        if (titles.Count > 0)
+        {
+            sb.AppendLine("## 取り込んだ規程");
+            sb.AppendLine(string.Join("、", titles));
+            sb.AppendLine();
+        }
         sb.AppendLine("## 候補の条文");
         for (var i = 0; i < candidates.Count; i++)
         {

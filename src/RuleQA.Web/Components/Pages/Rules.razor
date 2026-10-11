@@ -1,0 +1,179 @@
+@page "/rules"
+@inject RuleLibrary Library
+@inject IJSRuntime JS
+
+<PageTitle>規則一覧</PageTitle>
+
+<div class="page-head">
+    <h2>規則一覧</h2>
+    <span class="spacer"></span>
+    <FluentSwitch Label="旧版も表示する" @bind-Value="_includeOld" @bind-Value:after="ReloadAsync" />
+</div>
+
+<div class="rules-search">
+    <FluentTextField Placeholder="条文を検索（規程名・条番号・見出し・本文）" Immediate="true" ImmediateDelay="300" @bind-Value="_filter" @bind-Value:after="FilterAsync" />
+</div>
+
+<div class="rules">
+    <nav class="panel rules-list">
+        @if (_docs.Count == 0)
+        {
+            <p class="sub">規則がまだ取り込まれていません。<a href="settings#rules">設定</a>から取り込めます。</p>
+        }
+        @foreach (var doc in _docs)
+        {
+            <button class="doc-item @(doc.Id == _doc?.Id && string.IsNullOrWhiteSpace(_filter) ? "selected" : "")" @onclick="() => SelectAsync(doc.Id)">
+                <div class="doc-title">
+                    @doc.Title
+                    @if (doc.IsSuperseded)
+                    {
+                        <span class="badge badge-old">旧版</span>
+                    }
+                    @if (doc.Kind == DocumentKind.Reference)
+                    {
+                        <span class="badge">参考資料</span>
+                    }
+                    @if (doc.Warnings.Count > 0)
+                    {
+                        <span class="badge badge-none" title="取り込み時の警告">警告 @doc.Warnings.Count</span>
+                    }
+                </div>
+                <div class="sub">@doc.Path ・ @doc.Articles 件@(doc.EffectiveDate is { } d ? $" ・ {d:yyyy/M/d}" : "")</div>
+            </button>
+        }
+    </nav>
+
+    <section class="panel rules-body">
+        @if (!string.IsNullOrWhiteSpace(_filter))
+        {
+            <h3>「@_filter」を含む条文 @_found.Count 件@(_found.Count >= FindLimit ? "（先頭のみ）" : "")</h3>
+            @foreach (var article in _found)
+            {
+                <ArticleDetails Article="article" Open="true" />
+            }
+        }
+        else if (_doc is not null)
+        {
+            var summary = _docs.FirstOrDefault(d => d.Id == _doc.Id);
+            <h3>
+                @_doc.Title
+                @if (_doc.IsSuperseded)
+                {
+                    <span class="badge badge-old">旧版</span>
+                }
+                @if (_doc.Kind == DocumentKind.Reference)
+                {
+                    <span class="badge">参考資料</span>
+                }
+            </h3>
+            <div class="sub doc-meta">
+                ファイル：@_doc.Path（@_doc.Encoding）
+                @if (_doc.EffectiveDate is { } d)
+                {
+                    <span> ・ 施行・改定：@d.ToString("yyyy年M月d日")</span>
+                }
+                <span> ・ 取り込み：@_doc.ImportedAtUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</span>
+            </div>
+            @if (_doc.IsSuperseded)
+            {
+                var newer = _docs.FirstOrDefault(x => x.Path == _doc.SupersededBy);
+                <p class="notice">
+                    この文書は旧版です。質問への回答では、通常は検索の対象にしません。
+                    @if (newer is not null)
+                    {
+                        <span>新しい版：<a href="" @onclick="() => SelectAsync(newer.Id)" @onclick:preventDefault>@newer.Title（@newer.Path）</a></span>
+                    }
+                </p>
+            }
+            @if (_doc.Kind == DocumentKind.Reference)
+            {
+                <p class="notice">参考資料です。回答では規程を優先し、参考資料は補足として扱います。</p>
+            }
+            @if (summary?.Warnings.Count > 0)
+            {
+                <div class="test-result">取り込み時の警告：@("\n" + string.Join("\n", summary.Warnings))</div>
+            }
+            @foreach (var chapter in _doc.Articles.GroupBy(a => a.Chapter))
+            {
+                @if (chapter.Key is not null)
+                {
+                    <h4>@chapter.Key</h4>
+                }
+                @foreach (var article in chapter)
+                {
+                    <ArticleDetails Article="article" ShowTitle="false" Anchor="true" Open="@(article.Key == _target)" Highlight="@(article.Key == _target)" />
+                }
+            }
+        }
+    </section>
+</div>
+
+@code {
+    private const int FindLimit = 100;
+
+    [SupplyParameterFromQuery(Name = "article")]
+    public string? ArticleKey { get; set; }
+
+    /// <summary>Path of a document to open, for links from the question page.</summary>
+    [SupplyParameterFromQuery(Name = "doc")]
+    public string? DocPath { get; set; }
+
+    private IReadOnlyList<DocumentSummary> _docs = [];
+    private RuleDocument? _doc;
+    private bool _includeOld;
+    private string? _filter;
+    private IReadOnlyList<Article> _found = [];
+    private string? _target;
+    private string? _scrollTo;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _target = null;
+        var article = string.IsNullOrEmpty(ArticleKey) ? null : await Library.ArticleAsync(ArticleKey);
+        if (article?.Document.IsSuperseded == true) _includeOld = true;
+        _docs = await Library.DocumentsAsync(_includeOld);
+        if (article is not null)
+        {
+            _filter = null;
+            _target = article.Key;
+            _doc = await Library.DocumentAsync(article.RuleDocumentId);
+            _scrollTo = ArticleDetails.AnchorId(article);
+        }
+        else if (_docs.FirstOrDefault(d => d.Path == DocPath) is { } requested)
+        {
+            _filter = null;
+            _doc = await Library.DocumentAsync(requested.Id);
+        }
+        else if (_doc is null && _docs.Count > 0)
+        {
+            _doc = await Library.DocumentAsync(_docs[0].Id);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_scrollTo is null) return;
+        var id = _scrollTo;
+        _scrollTo = null;
+        await JS.InvokeVoidAsync("ruleqa.scrollTo", id);
+    }
+
+    private async Task ReloadAsync()
+    {
+        _docs = await Library.DocumentsAsync(_includeOld);
+        if (_doc is not null && _docs.All(d => d.Id != _doc.Id))
+            _doc = _docs.Count == 0 ? null : await Library.DocumentAsync(_docs[0].Id);
+        await FilterAsync();
+    }
+
+    private async Task FilterAsync() =>
+        _found = string.IsNullOrWhiteSpace(_filter) ? [] : await Library.FindAsync(_filter, _includeOld, FindLimit);
+
+    private async Task SelectAsync(int id)
+    {
+        _filter = null;
+        _found = [];
+        _target = null;
+        _doc = await Library.DocumentAsync(id);
+    }
+}

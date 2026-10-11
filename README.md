@@ -113,9 +113,9 @@ zip には次の利用者向けの文書も入ります。
 | `README.txt` | `docs/README-distribution.txt` |
 | `LICENSE.txt`（利用条件） | `docs/distribution/LICENSE.txt` |
 | `THIRD-PARTY-NOTICES.txt`（外部部品のライセンス表記） | `docs/distribution` の部品一覧とライセンス本文に、NuGet パッケージ内の .NET / ASP.NET Core Runtime の表記を付けて作る |
-| `RuleQA-guide.pdf`（非エンジニア向けの紹介・使い方） | `docs/portfolio/guide.html` を `scripts/build-docs.ps1` が Microsoft Edge で PDF にする |
+| `社内規則Q&A（RuleQA）のご紹介.pdf`（非エンジニア向けの紹介・使い方） | `docs/portfolio/guide.html` を `scripts/build-docs.ps1` が Microsoft Edge で PDF にする |
 
-案内 PDF だけを作り直すときは、`powershell -ExecutionPolicy Bypass -File scripts\build-docs.ps1` を実行します（`artifacts\RuleQA-guide.pdf`）。Edge がない環境では PDF を省きます。
+案内 PDF だけを作り直すときは、`powershell -ExecutionPolicy Bypass -File scripts\build-docs.ps1` を実行します（`artifacts\RuleQA-guide.pdf`。zip には上の日本語の名前で入れます）。Edge がない環境では PDF を省きます。
 
 `setup-git.ps1` は、このクローンに次の 2 つを設定します。
 - `main` への直接プッシュを止める `pre-push` フック（`.githooks`）。変更はブランチを切り、PR からスカッシュマージします。

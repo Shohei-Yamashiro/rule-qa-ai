@@ -34,6 +34,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<QaHistory>();
         services.AddSingleton<RuleLibrary>();
         services.AddSingleton<SearchEvaluator>();
+        services.AddSingleton(CurrentUser.DemoAdmin);
         return services;
     }
 }

@@ -1,6 +1,8 @@
 @page "/rules"
 @inject RuleLibrary Library
 @inject IJSRuntime JS
+@inject SettingsStore Store
+@inject CurrentUser User
 
 <PageTitle>規則一覧</PageTitle>
 
@@ -10,6 +12,8 @@
     <FluentSwitch Label="旧版も表示する" @bind-Value="_includeOld" @bind-Value:after="ReloadAsync" />
 </div>
 
+<ImportManager @ref="_manager" Folder="@Store.Current.Rules.Folder" OnImported="OnImportedAsync" />
+
 <div class="rules-search">
     <FluentTextField Placeholder="条文を検索（規程名・条番号・見出し・本文）" Immediate="true" ImmediateDelay="300" @bind-Value="_filter" @bind-Value:after="FilterAsync" />
 </div>
@@ -18,7 +22,7 @@
     <nav class="panel rules-list">
         @if (_docs.Count == 0)
         {
-            <p class="sub">規則がまだ取り込まれていません。<a href="settings#rules">設定</a>から取り込めます。</p>
+            <p class="sub">規則がまだ取り込まれていません。上の「取り込みの管理」から取り込めます。</p>
         }
         @foreach (var doc in _docs)
         {
@@ -73,6 +77,13 @@
                     <span> ・ 施行・改定：@d.ToString("yyyy年M月d日")</span>
                 }
                 <span> ・ 取り込み：@_doc.ImportedAtUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</span>
+                @if (User.IsAdmin)
+                {
+                    <span class="doc-reimport">
+                        <FluentButton Appearance="Appearance.Lightweight" IconStart="@(new Icons.Regular.Size16.ArrowClockwise())" OnClick="() => _manager!.ReimportAsync(_doc.Path)">この規程を取り込み直す</FluentButton>
+                        <AdminBadge />
+                    </span>
+                }
             </div>
             @if (_doc.IsSuperseded)
             {
@@ -125,6 +136,7 @@
     private IReadOnlyList<Article> _found = [];
     private string? _target;
     private string? _scrollTo;
+    private ImportManager? _manager;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -163,6 +175,16 @@
         _docs = await Library.DocumentsAsync(_includeOld);
         if (_doc is not null && _docs.All(d => d.Id != _doc.Id))
             _doc = _docs.Count == 0 ? null : await Library.DocumentAsync(_docs[0].Id);
+        await FilterAsync();
+    }
+
+    private async Task OnImportedAsync()
+    {
+        var path = _doc?.Path;
+        _doc = null;
+        _docs = await Library.DocumentsAsync(_includeOld);
+        var selected = _docs.FirstOrDefault(d => d.Path == path) ?? _docs.FirstOrDefault();
+        if (selected is not null) _doc = await Library.DocumentAsync(selected.Id);
         await FilterAsync();
     }
 

@@ -119,3 +119,44 @@ public class QaRecord
     public string? Error { get; set; }
     public int ElapsedMs { get; set; }
 }
+
+public enum ImportMode
+{
+    /// <summary>Files whose content changed, new files and removed files (the usual import).</summary>
+    Changes,
+
+    /// <summary>Only the files that were chosen, read again even when unchanged; other changes stay pending.</summary>
+    Selected,
+
+    /// <summary>Every file read again even when unchanged, for example after the way articles are split has changed.</summary>
+    All,
+
+    /// <summary>The import at first start, when the database is empty.</summary>
+    Initial,
+}
+
+/// <summary>One run of the rules import.</summary>
+public class ImportLog
+{
+    public int Id { get; set; }
+    public DateTime AtUtc { get; set; }
+    public ImportMode Mode { get; set; }
+    public string Folder { get; set; } = "";
+    public int Added { get; set; }
+    public int Updated { get; set; }
+    public int Removed { get; set; }
+    public int Unchanged { get; set; }
+
+    /// <summary>One line per file: "変更 03_旅費規程.md：変更 第5条／追加 第10条".</summary>
+    public string Details { get; set; } = "";
+
+    public string Warnings { get; set; } = "";
+
+    public string ModeLabel => Mode switch
+    {
+        ImportMode.Selected => "選んだものを取り込み",
+        ImportMode.All => "すべて取り込み直し",
+        ImportMode.Initial => "初回の自動取り込み",
+        _ => "変更を取り込み",
+    };
+}

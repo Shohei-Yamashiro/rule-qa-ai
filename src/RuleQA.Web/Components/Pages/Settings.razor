@@ -4,6 +4,7 @@
 @inject RuleImporter Importer
 @inject RuleSearchService Search
 @inject IToastService Toast
+@inject CurrentUser User
 
 <PageTitle>設定</PageTitle>
 
@@ -11,7 +12,8 @@
     <h2>設定</h2>
     <span class="spacer"></span>
     <span class="sub">変更は「保存」を押すと反映されます</span>
-    <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size20.Save())" OnClick="Save">保存</FluentButton>
+    <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size20.Save())" Disabled="@(!User.IsAdmin)" OnClick="Save">保存</FluentButton>
+    <AdminBadge />
 </div>
 
 <div class="settings">
@@ -79,9 +81,11 @@
             </div>
         </div>
         <div class="actions" style="margin-top: 0">
-            <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowImport())" Disabled="_rulesBusy" OnClick="ImportAsync">取り込む</FluentButton>
+            <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowImport())" Disabled="@(_rulesBusy || !User.IsAdmin)" OnClick="ImportAsync">変更を取り込む</FluentButton>
+            <AdminBadge />
             <span class="sub" style="align-self: center">@StatsText</span>
         </div>
+        <p class="sub">変更のあったファイルの確認、規程ごとの取り込み、すべての取り込み直し、取り込みの記録は<a href="rules">規則一覧</a>の「取り込みの管理」から行えます。</p>
         @if (_importWarnings is { Count: > 0 })
         {
             <div class="test-result">@string.Join("\n", _importWarnings)</div>
@@ -96,7 +100,8 @@
         @if (_s.Ai.Provider == AiProvider.OpenAiCompatible && !string.IsNullOrWhiteSpace(_s.Ai.EmbeddingModel))
         {
             <div class="actions" style="margin-top: 0">
-                <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.DataUsage())" Disabled="_rulesBusy" OnClick="BuildVectorsAsync">ベクトルを作成</FluentButton>
+                <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.DataUsage())" Disabled="@(_rulesBusy || !User.IsAdmin)" OnClick="BuildVectorsAsync">ベクトルを作成</FluentButton>
+                <AdminBadge />
                 @if (_rulesBusy && _progress is not null)
                 {
                     <FluentProgressRing Width="16px" Style="align-self: center" />
@@ -191,10 +196,11 @@
         _rulesBusy = true;
         try
         {
+            if (!User.IsAdmin) return;
             var r = await Importer.ImportFolderAsync(_s.Rules.Folder);
             _importWarnings = r.Warnings;
             var summary = $"追加 {r.Added}・更新 {r.Updated}・削除 {r.Removed}・変更なし {r.Unchanged}";
-            if (r.Changed == 0 && r.Unchanged == 0) Toast.ShowError("取り込めませんでした。" + string.Join(" ", r.Warnings));
+            if (r.Changed == 0 && r.Unchanged == 0 && r.Warnings.Count > 0) Toast.ShowError("取り込めませんでした。" + string.Join(" ", r.Warnings));
             else Toast.ShowSuccess($"取り込みました（{summary}）。" + (r.KeptVectors > 0 ? $"作成済みのベクトル {r.KeptVectors} 件はそのまま使います。" : ""));
             _hits = null;
         }
@@ -263,6 +269,7 @@
 
     private void Save()
     {
+        if (!User.IsAdmin) return;
         _s.Ai.TimeoutSeconds = Math.Max(5, _s.Ai.TimeoutSeconds);
         _s.Rules.CandidateCount = Math.Clamp(_s.Rules.CandidateCount, 1, RuleSearchService.MaxCandidates);
         Store.Save(_s);

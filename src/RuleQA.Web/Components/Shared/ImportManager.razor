@@ -1,0 +1,200 @@
+@inject RuleImporter Importer
+@inject CurrentUser User
+@inject IToastService Toast
+@inject IDialogService Dialogs
+
+@if (_check is { Exists: false })
+{
+    <p class="notice">規則フォルダが見つかりません：@_check.Folder（<a href="settings#rules">設定</a>で変更できます）</p>
+}
+else if (_check is { HasChanges: true })
+{
+    <p class="notice notice-change">
+        規則フォルダに、まだ取り込んでいない変更があります（@CountsText(_check)）。
+        @if (User.IsAdmin)
+        {
+            <a href="" @onclick="() => _open = true" @onclick:preventDefault>取り込みの管理を開く</a>
+        }
+        else
+        {
+            <span>管理者に取り込みを依頼してください。</span>
+        }
+    </p>
+}
+
+<section class="panel import-panel">
+    <div class="import-head">
+        <button class="link-button" @onclick="() => _open = !_open">
+            <FluentIcon Value="@(_open ? (Icon)new Icons.Regular.Size16.ChevronDown() : new Icons.Regular.Size16.ChevronRight())" />
+            取り込みの管理
+        </button>
+        <AdminBadge />
+        <span class="sub">
+            @if (_check is { Exists: true, HasChanges: false })
+            {
+                <span>規則フォルダと取り込んだ内容は一致しています</span>
+            }
+            @if (_checkedAt is { } at)
+            {
+                <span>（@at.ToString("HH:mm:ss") に確認）</span>
+            }
+        </span>
+        <span class="spacer"></span>
+        <FluentButton Appearance="Appearance.Lightweight" IconStart="@(new Icons.Regular.Size16.ArrowSync())" Disabled="_busy" OnClick="RefreshAsync">確認</FluentButton>
+    </div>
+
+    @if (_open && _check is { Exists: true } check)
+    {
+        <p class="sub">
+            フォルダ：@check.Folder<br />
+            ファイルの追加・変更・削除を、規程ごとに選んで取り込めます。選ばなかった変更は、次に取り込むまでそのまま残ります。
+            「すべて取り込み直す」は変更のないファイルも読み直します（作成済みのベクトルは、条文が同じならそのまま使います）。
+        </p>
+        <table class="eval-table import-files">
+            <tr><th></th><th>状態</th><th>ファイル</th><th>規程名</th><th>条文の変更</th></tr>
+            @foreach (var f in check.Files.Where(f => _showUnchanged || f.Kind != FileChangeKind.Unchanged))
+            {
+                <tr class="@(f.Kind == FileChangeKind.Unchanged ? "unchanged" : "")">
+                    <td><FluentCheckbox Value="@_selected.Contains(f.Path)" ValueChanged="@((bool v) => Toggle(f.Path, v))" Disabled="@(!User.IsAdmin || _busy)" /></td>
+                    <td><span class="badge @KindClass(f.Kind)">@f.KindLabel</span></td>
+                    <td>@f.Path</td>
+                    <td>@f.Title</td>
+                    <td class="sub">@ArticlesText(f)</td>
+                </tr>
+            }
+        </table>
+        @if (check.Count(FileChangeKind.Unchanged) > 0)
+        {
+            <FluentSwitch Label="@($"変更のないファイルも表示する（{check.Count(FileChangeKind.Unchanged)} 件）")" @bind-Value="_showUnchanged" />
+        }
+        <div class="actions">
+            <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size16.ArrowImport())" Disabled="@(!User.IsAdmin || _busy || _selected.Count == 0)" OnClick="ImportSelectedAsync">選んだものを取り込む（@_selected.Count 件）</FluentButton>
+            <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowImport())" Disabled="@(!User.IsAdmin || _busy || !check.HasChanges)" OnClick="ImportChangesAsync">変更をすべて取り込む</FluentButton>
+            <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowClockwise())" Disabled="@(!User.IsAdmin || _busy)" OnClick="ImportAllAsync">すべて取り込み直す</FluentButton>
+            @if (_busy)
+            {
+                <FluentProgressRing Width="16px" Style="align-self: center" />
+            }
+        </div>
+        @if (_warnings is { Count: > 0 })
+        {
+            <div class="test-result">取り込み時の警告：@("\n" + string.Join("\n", _warnings))</div>
+        }
+
+        <h4>取り込みの記録</h4>
+        @if (_logs.Count == 0)
+        {
+            <p class="sub">まだ記録はありません。</p>
+        }
+        @foreach (var log in _logs)
+        {
+            <details class="import-log">
+                <summary>
+                    @log.AtUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm:ss") ・ @log.ModeLabel ・
+                    追加 @log.Added・更新 @log.Updated・削除 @log.Removed
+                    @if (!string.IsNullOrEmpty(log.Warnings))
+                    {
+                        <span class="badge badge-none">警告あり</span>
+                    }
+                </summary>
+                <div class="test-result">@(string.IsNullOrEmpty(log.Details) ? "変更はありませんでした。" : log.Details)@(string.IsNullOrEmpty(log.Warnings) ? "" : "\n\n警告：\n" + log.Warnings)</div>
+            </details>
+        }
+    }
+</section>
+
+@code {
+    /// <summary>The rules folder from the settings.</summary>
+    [Parameter, EditorRequired]
+    public string Folder { get; set; } = "";
+
+    /// <summary>Called after an import so the page can reload the documents.</summary>
+    [Parameter]
+    public EventCallback OnImported { get; set; }
+
+    private FolderCheck? _check;
+    private DateTime? _checkedAt;
+    private IReadOnlyList<ImportLog> _logs = [];
+    private readonly HashSet<string> _selected = new(StringComparer.OrdinalIgnoreCase);
+    private IReadOnlyList<string>? _warnings;
+    private bool _open;
+    private bool _showUnchanged;
+    private bool _busy;
+
+    protected override Task OnInitializedAsync() => RefreshAsync();
+
+    public async Task RefreshAsync()
+    {
+        _check = await Importer.CheckAsync(Folder);
+        _checkedAt = DateTime.Now;
+        _logs = await Importer.LogsAsync();
+        _selected.RemoveWhere(p => _check.Files.All(f => !string.Equals(f.Path, p, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    /// <summary>Reads one document again, for the button on a document.</summary>
+    public Task ReimportAsync(string path) => RunAsync(ImportMode.Selected, [path]);
+
+    private void Toggle(string path, bool on)
+    {
+        if (on) _selected.Add(path);
+        else _selected.Remove(path);
+    }
+
+    private Task ImportSelectedAsync() => RunAsync(ImportMode.Selected, _selected.ToList());
+
+    private Task ImportChangesAsync() => RunAsync(ImportMode.Changes, null);
+
+    private async Task ImportAllAsync()
+    {
+        var dialog = await Dialogs.ShowConfirmationAsync("規則フォルダのすべてのファイルを読み直します。よろしいですか？", "取り込み直す", "やめる", "すべて取り込み直す");
+        var result = await dialog.Result;
+        if (result.Cancelled) return;
+        await RunAsync(ImportMode.All, null);
+    }
+
+    private async Task RunAsync(ImportMode mode, IReadOnlyCollection<string>? paths)
+    {
+        if (!User.IsAdmin) return;
+        _busy = true;
+        try
+        {
+            var r = await Importer.ImportFolderAsync(Folder, mode, paths);
+            _warnings = r.Warnings;
+            if (r.Files.Count == 0 && r.Warnings.Count > 0) Toast.ShowError("取り込めませんでした。" + string.Join(" ", r.Warnings));
+            else Toast.ShowSuccess($"取り込みました（追加 {r.Added}・更新 {r.Updated}・削除 {r.Removed}）。"
+                + (r.KeptVectors > 0 ? $"作成済みのベクトル {r.KeptVectors} 件はそのまま使います。" : ""));
+            _selected.Clear();
+            await RefreshAsync();
+            await OnImported.InvokeAsync();
+        }
+        catch (Exception e)
+        {
+            Toast.ShowError("取り込めませんでした: " + e.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string CountsText(FolderCheck c) =>
+        string.Join("・", new[] { FileChangeKind.Added, FileChangeKind.Changed, FileChangeKind.Removed }
+            .Where(k => c.Count(k) > 0)
+            .Select(k => $"{FileChange.Label(k)} {c.Count(k)} 件"));
+
+    private static string KindClass(FileChangeKind kind) => kind switch
+    {
+        FileChangeKind.Added => "badge-ok",
+        FileChangeKind.Changed => "badge-change",
+        FileChangeKind.Removed => "badge-none",
+        _ => "",
+    };
+
+    private static string ArticlesText(FileChange f) => f.Kind switch
+    {
+        FileChangeKind.Added => $"条文 {f.Articles.Added.Count} 件",
+        FileChangeKind.Removed => $"条文 {f.Articles.Removed.Count} 件がなくなります",
+        FileChangeKind.Unchanged => "",
+        _ => f.Articles.Any ? f.Articles.Describe() : "条文の変更なし（書式などの変更）",
+    };
+}

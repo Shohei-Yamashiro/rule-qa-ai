@@ -164,6 +164,78 @@ h1:focus {
 }
 
 .badge-old { background: #fde7e9; color: #b10e1c; }
+.badge-ok { background: #dff6dd; color: #0e700e; margin-left: 0; }
+.badge-none { background: #fff4ce; color: #8a5300; margin-left: 0; }
+
+.chat {
+    display: grid;
+    gap: 10px;
+    max-width: 860px;
+}
+
+.chat-question {
+    justify-self: end;
+    max-width: 80%;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: #0f6cbd;
+    color: #fff;
+    white-space: pre-wrap;
+}
+
+.chat-answer h4 {
+    margin: 14px 0 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.chat-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.chat-text {
+    white-space: pre-wrap;
+    line-height: 1.7;
+}
+
+.chat-error {
+    margin-top: 6px;
+    color: #b10e1c;
+}
+
+.chat-input {
+    display: flex;
+    gap: 8px;
+    position: sticky;
+    bottom: -20px;
+    padding: 10px 0 20px;
+    background: #f5f6f8;
+}
+
+.chat-input fluent-text-field {
+    flex: 1;
+}
+
+details.article {
+    border: 1px solid #e1e3e8;
+    border-radius: 4px;
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+
+details.article summary {
+    cursor: pointer;
+}
+
+.article-body {
+    white-space: pre-wrap;
+    line-height: 1.7;
+    margin: 8px 0 4px;
+}
 
 .eval-table {
     border-collapse: collapse;

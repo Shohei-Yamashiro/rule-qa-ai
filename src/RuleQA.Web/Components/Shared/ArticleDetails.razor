@@ -1,0 +1,20 @@
+<details class="article">
+    <summary>
+        @Article.DisplayName
+        @if (Article.Document.IsSuperseded)
+        {
+            <span class="badge badge-old">旧版</span>
+        }
+        @if (Article.Document.Kind == DocumentKind.Reference)
+        {
+            <span class="badge">参考資料</span>
+        }
+    </summary>
+    <div class="article-body">@Article.Body</div>
+    <div class="sub">@Article.Document.Path@(Article.Document.EffectiveDate is { } d ? $"（{d:yyyy年M月d日} 施行・改定）" : "")</div>
+</details>
+
+@code {
+    [Parameter, EditorRequired]
+    public Article Article { get; set; } = null!;
+}

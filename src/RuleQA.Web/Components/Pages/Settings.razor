@@ -107,7 +107,7 @@
 
         <h4>試しに検索</h4>
         <div class="row">
-            <div class="field wide"><FluentTextField Label="質問" Placeholder="例: 国内出張の日当はいくら？" Immediate="true" @bind-Value="_searchText" @onkeydown="SearchOnEnterAsync" /></div>
+            <div class="field wide"><FluentTextField Label="質問" Placeholder="質問を入力して Enter" Immediate="true" @bind-Value="_searchText" @onkeydown="SearchOnEnterAsync" /></div>
         </div>
         <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.Search())" Disabled="@(_rulesBusy || string.IsNullOrWhiteSpace(_searchText))" OnClick="SearchAsync">検索</FluentButton>
         @if (_hits is not null)

@@ -38,6 +38,11 @@ public sealed class ArticleIndex
 
     public int Count => _entries.Count;
 
+    /// <summary>Titles of the current regulations in the index (not old versions or reference material).</summary>
+    public IReadOnlyList<string> Titles => _entries.Select(e => e.Article.Document)
+        .Where(d => !d.IsSuperseded && d.Kind == DocumentKind.Regulation)
+        .Select(d => d.BaseTitle).Distinct().ToList();
+
     /// <summary>True when every article has a vector for the embedding model in use.</summary>
     public bool HasVectors => _entries.Count > 0 && _entries.All(e => e.Vector is not null);
 

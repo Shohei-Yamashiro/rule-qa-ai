@@ -77,3 +77,45 @@ public class Article
     /// <summary>The text that is embedded; a change means the vector must be rebuilt.</summary>
     public string EmbeddingText => $"{Document.Title} {Chapter} {Label} {Heading}\n{Body}";
 }
+
+public enum AnswerStatus
+{
+    /// <summary>The AI answered from the cited articles.</summary>
+    Answered,
+
+    /// <summary>The rules do not cover the question (the AI said so, or cited nothing valid).</summary>
+    NotInRules,
+
+    /// <summary>No AI is set or it failed; the candidates are shown as they are.</summary>
+    SearchOnly,
+
+    /// <summary>The AI judged that the question has nothing to do with the company or work (weather, news, small talk ...).</summary>
+    OffTopic,
+}
+
+/// <summary>One question and the answer shown for it.</summary>
+public class QaRecord
+{
+    public int Id { get; set; }
+
+    /// <summary>Questions asked in one conversation share this ID.</summary>
+    public string ConversationId { get; set; } = "";
+
+    /// <summary>1 for the first question of the conversation.</summary>
+    public int Turn { get; set; }
+
+    public DateTime AskedAtUtc { get; set; }
+    public string Question { get; set; } = "";
+    public AnswerStatus Status { get; set; }
+    public string AnswerText { get; set; } = "";
+
+    /// <summary>Article keys, one per line. Keys (not IDs) so the history survives re-imports.</summary>
+    public string CitationKeys { get; set; } = "";
+
+    /// <summary>Keys of the articles found by search, one per line.</summary>
+    public string CandidateKeys { get; set; } = "";
+
+    public string? AiName { get; set; }
+    public string? Error { get; set; }
+    public int ElapsedMs { get; set; }
+}

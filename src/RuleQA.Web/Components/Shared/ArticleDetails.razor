@@ -1,6 +1,6 @@
-<details class="article">
+<details class="article @(Highlight ? "article-target" : "")" id="@(Anchor ? AnchorId(Article) : null)" open="@Open">
     <summary>
-        @Article.DisplayName
+        @(ShowTitle ? Article.DisplayName : Article.Label + (Article.Heading is null ? "" : $"（{Article.Heading}）"))
         @if (Article.Document.IsSuperseded)
         {
             <span class="badge badge-old">旧版</span>
@@ -11,10 +11,38 @@
         }
     </summary>
     <div class="article-body">@Article.Body</div>
-    <div class="sub">@Article.Document.Path@(Article.Document.EffectiveDate is { } d ? $"（{d:yyyy年M月d日} 施行・改定）" : "")</div>
+    @if (ShowTitle)
+    {
+        <div class="sub">
+            @Article.Document.Path@(Article.Document.EffectiveDate is { } d ? $"（{d:yyyy年M月d日} 施行・改定）" : "")
+            @if (ShowLink)
+            {
+                <a class="article-link" href="@($"rules?article={Uri.EscapeDataString(Article.Key)}")">規則一覧で開く</a>
+            }
+        </div>
+    }
 </details>
 
 @code {
     [Parameter, EditorRequired]
     public Article Article { get; set; } = null!;
+
+    /// <summary>Show the regulation name with the article number (off inside a regulation's own page).</summary>
+    [Parameter]
+    public bool ShowTitle { get; set; } = true;
+
+    [Parameter]
+    public bool ShowLink { get; set; }
+
+    [Parameter]
+    public bool Open { get; set; }
+
+    [Parameter]
+    public bool Highlight { get; set; }
+
+    /// <summary>Give the element an id so the rules page can scroll to it.</summary>
+    [Parameter]
+    public bool Anchor { get; set; }
+
+    public static string AnchorId(Article article) => $"art-{article.Id}";
 }

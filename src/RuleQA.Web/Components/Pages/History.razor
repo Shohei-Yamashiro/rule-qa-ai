@@ -1,0 +1,105 @@
+@page "/history"
+@inject QaHistory Records
+@inject NavigationManager Nav
+@inject IDialogService Dialogs
+
+<PageTitle>履歴</PageTitle>
+
+<div class="page-head">
+    <h2>履歴</h2>
+    <span class="spacer"></span>
+    <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.Delete())" Disabled="@(Total == 0)" OnClick="ClearAsync">履歴をすべて削除</FluentButton>
+</div>
+
+<div class="history-filters">
+    <FluentTextField Placeholder="質問・回答の文字で絞り込み" Immediate="true" ImmediateDelay="300" @bind-Value="_text" @bind-Value:after="LoadAsync" />
+    <div class="chips">
+        <FluentButton Appearance="@(_status is null ? Appearance.Accent : Appearance.Outline)" OnClick="() => FilterAsync(null)">すべて @Total</FluentButton>
+        @foreach (var status in Enum.GetValues<AnswerStatus>())
+        {
+            <FluentButton Appearance="@(_status == status ? Appearance.Accent : Appearance.Outline)" OnClick="() => FilterAsync(status)">@StatusBadge.Label(status) @_counts.GetValueOrDefault(status)</FluentButton>
+        }
+    </div>
+</div>
+
+@if (_entries.Count == 0)
+{
+    <section class="panel"><p class="sub">@(Total == 0 ? "まだ質問がありません。質問画面で質問すると、ここに記録されます。" : "条件に合う履歴はありません。")</p></section>
+}
+<div class="history">
+    @foreach (var entry in _entries)
+    {
+        var r = entry.Record;
+        <details class="panel history-item">
+            <summary>
+                <span class="sub history-date">@r.AskedAtUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</span>
+                <StatusBadge Status="r.Status" />
+                <span class="history-question">@r.Question</span>
+                @if (entry.Citations.Count > 0)
+                {
+                    <span class="sub">— @string.Join("、", entry.Citations.Select(c => c.Article is null ? c.Key : $"{c.Article.Document.Title} {c.Article.Label}"))</span>
+                }
+            </summary>
+            <div class="chat-text history-answer">@r.AnswerText</div>
+            @if (r.Error is not null)
+            {
+                <div class="sub chat-error">@r.Error</div>
+            }
+            @{
+                IReadOnlyList<ArticleRef> refs = entry.Citations.Count > 0 ? entry.Citations : r.Status == AnswerStatus.OffTopic ? [] : entry.Candidates;
+            }
+            @if (refs.Count > 0)
+            {
+                <h4>@(entry.Citations.Count > 0 ? "根拠の条文" : "候補の条文")</h4>
+                @foreach (var a in refs)
+                {
+                    @if (a.Article is null)
+                    {
+                        <div class="sub missing">@a.Key（今の規則にはありません。取り込み直しで削除または名前が変わった可能性があります）</div>
+                    }
+                    else
+                    {
+                        <ArticleDetails Article="a.Article" ShowLink="true" />
+                    }
+                }
+            }
+            <div class="history-footer">
+                <span class="sub">会話の @r.Turn 問目@(r.AiName is null ? "" : $" ・ {r.AiName}") ・ @((r.ElapsedMs / 1000.0).ToString("0.0")) 秒</span>
+                <span class="spacer"></span>
+                <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.Chat())" OnClick="@(() => Nav.NavigateTo($"/?c={r.ConversationId}"))">この会話を続ける</FluentButton>
+            </div>
+        </details>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<HistoryEntry> _entries = [];
+    private IReadOnlyDictionary<AnswerStatus, int> _counts = new Dictionary<AnswerStatus, int>();
+    private string? _text;
+    private AnswerStatus? _status;
+
+    private int Total => _counts.Values.Sum();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _counts = await Records.CountsAsync();
+        _entries = await Records.ListAsync(new HistoryQuery(_text, _status));
+    }
+
+    private Task FilterAsync(AnswerStatus? status)
+    {
+        _status = status;
+        return LoadAsync();
+    }
+
+    private async Task ClearAsync()
+    {
+        var dialog = await Dialogs.ShowConfirmationAsync($"履歴 {Total} 件をすべて削除します。元に戻せません。よろしいですか？", "削除する", "やめる", "履歴の削除");
+        var result = await dialog.Result;
+        if (result.Cancelled) return;
+        await Records.ClearAsync();
+        await LoadAsync();
+    }
+}

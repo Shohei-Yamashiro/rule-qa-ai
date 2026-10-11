@@ -1,7 +1,12 @@
 @page "/"
+@using System.Diagnostics
 @inject SettingsStore Store
 @inject RuleImporter Importer
+@inject RuleLibrary Library
 @inject RuleAnswerService Answers
+@inject QaHistory History
+@inject NavigationManager Nav
+@inject ILogger<Home> Logger
 
 <PageTitle>質問</PageTitle>
 
@@ -16,13 +21,51 @@
     @if (_turns.Count == 0)
     {
         <section class="panel">
-            <p>社内規則についての質問に、根拠の条文を添えて答えます。規則に書かれていないことは「規則には記載がありません」と答えます。前の回答を受けて「その場合は？」のように続けて聞くこともできます。</p>
-            <p class="sub">取り込んだ規則：@_stats</p>
-            @if (_titles.Count > 0)
+            @if (_stats is { Documents: 0 })
             {
-                <p class="sub">規程：@string.Join("・", _titles)</p>
+                <p>規則がまだ取り込まれていません。<a href="settings#rules">設定</a>の「規則の取り込み」で、規則ファイルのフォルダを取り込むと質問できるようになります。</p>
+            }
+            else
+            {
+                <p>取り込んだ社内規則についての質問に、根拠の条文を添えて答えます。規則に書かれていないことは「規則には記載がありません」と答えます。前の回答を受けて「その場合は？」のように続けて聞くこともできます。</p>
+                @if (_popular.Count > 0)
+                {
+                    <h4 class="topics-head">よくある質問（直近 @PopularDays 日）</h4>
+                    <div class="suggestions">
+                        @foreach (var p in _popular)
+                        {
+                            <button class="suggestion" title="@($"{p.Count} 回・最後は {p.LastAskedUtc.ToLocalTime():yyyy/MM/dd}")" @onclick="() => Fill(p.Question)">@p.Question<span class="suggestion-count">@p.Count</span></button>
+                        }
+                    </div>
+                }
+                @if (_examples.Count > 0)
+                {
+                    <h4 class="topics-head">@(_popular.Count > 0 ? "ほかにも、こんなことを聞けます" : "例えば、こんなことを聞けます")</h4>
+                    <div class="suggestions">
+                        @foreach (var e in _examples)
+                        {
+                            <button class="suggestion" @onclick="() => Fill(e.Question)">@e.Question</button>
+                        }
+                    </div>
+                }
+                @if (_stats is { Titles.Count: > 0 } s)
+                {
+                    <p class="sub rules-summary">
+                        取り込んだ規程 @s.Titles.Count 件：@string.Join("・", s.Titles.Take(TitlesShown))@(s.Titles.Count > TitlesShown ? $" ほか {s.Titles.Count - TitlesShown} 件" : "")
+                        （<a href="rules">規則一覧で見る</a>）
+                    </p>
+                }
+                <p class="sub">@StatsText</p>
+            }
+            @if (_notFound)
+            {
+                <p class="sub chat-error">指定された会話は履歴にありません。新しい会話を始めます。</p>
             }
         </section>
+    }
+    else if (_restored)
+    {
+        <div class="sub">履歴から会話を開きました。続けて質問できます。</div>
     }
 
     @foreach (var turn in _turns)
@@ -36,27 +79,17 @@
             else
             {
                 <div class="chat-status">
-                    @switch (a.Status)
-                    {
-                        case AnswerStatus.Answered:
-                            <span class="badge badge-ok">回答</span>
-                            break;
-                        case AnswerStatus.NotInRules:
-                            <span class="badge badge-none">記載なし</span>
-                            break;
-                        case AnswerStatus.OffTopic:
-                            <span class="badge badge-none">対象外</span>
-                            break;
-                        default:
-                            <span class="badge">検索のみ</span>
-                            break;
-                    }
+                    <StatusBadge Status="a.Status" />
                     @if (a.AiName is not null)
                     {
                         <span class="sub">@a.AiName</span>
                     }
                 </div>
                 <div class="chat-text">@a.Text</div>
+                @if (a.Status == AnswerStatus.OffTopic)
+                {
+                    <div class="sub">取り込んだ規程と条文は <a href="rules">規則一覧</a> で確認できます。</div>
+                }
                 @if (a.Error is not null)
                 {
                     <div class="sub chat-error">@a.Error</div>
@@ -66,7 +99,7 @@
                     <h4>根拠の条文</h4>
                     @foreach (var article in a.Citations)
                     {
-                        <ArticleDetails Article="article" />
+                        <ArticleDetails Article="article" ShowLink="true" />
                     }
                 }
                 else if (a.Candidates.Count > 0 && a.Status != AnswerStatus.OffTopic)
@@ -74,20 +107,24 @@
                     <h4>@(a.Status == AnswerStatus.NotInRules ? "関連しそうな条文" : "該当しそうな条文")</h4>
                     @foreach (var hit in a.Candidates)
                     {
-                        <ArticleDetails Article="hit.Article" />
+                        <ArticleDetails Article="hit.Article" ShowLink="true" />
                     }
                 }
                 @if (a.DroppedCitations.Count > 0)
                 {
                     <div class="sub">候補にない条文 ID を根拠から外しました：@string.Join("、", a.DroppedCitations)</div>
                 }
+                @if (turn.Missing.Count > 0)
+                {
+                    <div class="sub missing">今の規則にない条文：@string.Join("、", turn.Missing)</div>
+                }
             }
         </section>
     }
 
     <div class="chat-input">
-        <FluentTextField @ref="_input" Placeholder="質問を入力して Enter" Immediate="true" @bind-Value="_question" @onkeydown="OnKeyDownAsync" Disabled="_busy" />
-        <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size16.Send())" Disabled="@(_busy || string.IsNullOrWhiteSpace(_question))" OnClick="AskAsync">送信</FluentButton>
+        <FluentTextField @ref="_input" Placeholder="@(NoRules ? "規則を取り込むと質問できます" : "質問を入力して Enter")" Immediate="true" @bind-Value="_question" @onkeydown="OnKeyDownAsync" Disabled="@(_busy || NoRules)" />
+        <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size16.Send())" Disabled="@(_busy || NoRules || string.IsNullOrWhiteSpace(_question))" OnClick="AskAsync">送信</FluentButton>
     </div>
 </div>
 
@@ -96,20 +133,58 @@
     {
         public string Question { get; } = question;
         public RuleAnswer? Answer { get; set; }
+        public IReadOnlyList<string> Missing { get; init; } = [];
     }
+
+    /// <summary>A conversation from the history to continue.</summary>
+    [SupplyParameterFromQuery(Name = "c")]
+    public string? ConversationParameter { get; set; }
 
     private readonly List<Turn> _turns = [];
     private FluentTextField? _input;
     private string? _question;
     private bool _busy;
-    private string _stats = "…";
-    private IReadOnlyList<string> _titles = [];
+    private const int SuggestionCount = 6;
+    private const int PopularDays = 90;
+    private const int TitlesShown = 3;
+    private LibraryStats? _stats;
+    private IReadOnlyList<PopularQuestion> _popular = [];
+    private IReadOnlyList<RuleExample> _examples = [];
+    private string _conversationId = QaHistory.NewConversationId();
+    private string? _loaded;
+    private bool _restored;
+    private bool _notFound;
 
     protected override async Task OnInitializedAsync()
     {
-        var s = await Importer.StatsAsync(null);
-        _titles = s.Titles;
-        _stats = s.Documents == 0 ? "まだありません（設定画面で取り込めます）" : $"規程 {s.Documents} 件（うち旧版 {s.Superseded}・参考資料 {s.References}）・条文 {s.Articles} 件";
+        _stats = await Importer.StatsAsync(null);
+        _popular = await History.PopularAsync(SuggestionCount, PopularDays);
+        _examples = RuleLibrary.PickExamples(await Library.TopicsAsync(), SuggestionCount - _popular.Count, Random.Shared);
+    }
+
+    private void Fill(string question)
+    {
+        _question = question;
+        _input?.FocusAsync();
+    }
+
+    private bool NoRules => _stats is { Documents: 0 } && _turns.Count == 0;
+
+    private string StatsText => _stats is not { } s ? "" :
+        $"取り込んだ規則：文書 {s.Documents} 件（うち旧版 {s.Superseded}・参考資料 {s.References}）・条文 {s.Articles} 件"
+        + (s.LastImportedUtc is { } t ? $" ・ 最終取り込み {t.ToLocalTime():yyyy/MM/dd HH:mm}" : "");
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (string.IsNullOrEmpty(ConversationParameter) || ConversationParameter == _loaded) return;
+        _loaded = ConversationParameter;
+        _turns.Clear();
+        var entries = await History.ConversationAsync(ConversationParameter);
+        _restored = entries.Count > 0;
+        _notFound = entries.Count == 0;
+        _conversationId = _restored ? ConversationParameter : QaHistory.NewConversationId();
+        foreach (var entry in entries)
+            _turns.Add(new Turn(entry.Record.Question) { Answer = entry.ToAnswer(), Missing = entry.MissingKeys });
     }
 
     private string AiStatus => Store.Current.Ai is { Provider: AiProvider.OpenAiCompatible } ai
@@ -129,8 +204,10 @@
         var turn = new Turn(question);
         _turns.Add(turn);
         _question = null;
+        _notFound = false;
         _busy = true;
         StateHasChanged();
+        var watch = Stopwatch.StartNew();
         try
         {
             turn.Answer = await Answers.AnswerAsync(question, history, Store.Current);
@@ -143,6 +220,14 @@
         {
             _busy = false;
         }
+        try
+        {
+            await History.SaveAsync(_conversationId, turn.Answer, watch.Elapsed);
+        }
+        catch (Exception e)
+        {
+            Logger.LogWarning(e, "Could not save the question to the history");
+        }
         StateHasChanged();
         _input?.FocusAsync();
     }
@@ -151,5 +236,13 @@
     {
         _turns.Clear();
         _question = null;
+        _restored = false;
+        _notFound = false;
+        _conversationId = QaHistory.NewConversationId();
+        if (!string.IsNullOrEmpty(ConversationParameter))
+        {
+            _loaded = null;
+            Nav.NavigateTo("/");
+        }
     }
 }

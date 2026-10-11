@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging.Abstractions;
 using RuleQA.Core.Ai;
 using RuleQA.Core.Answering;
+using RuleQA.Core.Domain;
 using RuleQA.Core.Rules;
 using RuleQA.Core.Search;
 using RuleQA.Core.Settings;

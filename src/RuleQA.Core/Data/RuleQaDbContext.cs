@@ -7,6 +7,7 @@ public sealed class RuleQaDbContext(DbContextOptions<RuleQaDbContext> options) :
 {
     public DbSet<RuleDocument> Documents => Set<RuleDocument>();
     public DbSet<Article> Articles => Set<Article>();
+    public DbSet<QaRecord> QaRecords => Set<QaRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,6 +24,13 @@ public sealed class RuleQaDbContext(DbContextOptions<RuleQaDbContext> options) :
             e.HasIndex(a => a.Key).IsUnique();
             e.Ignore(a => a.DisplayName);
             e.Ignore(a => a.EmbeddingText);
+        });
+
+        modelBuilder.Entity<QaRecord>(e =>
+        {
+            e.HasIndex(r => r.ConversationId);
+            e.HasIndex(r => r.AskedAtUtc);
+            e.Property(r => r.Status).HasConversion<string>();
         });
     }
 }

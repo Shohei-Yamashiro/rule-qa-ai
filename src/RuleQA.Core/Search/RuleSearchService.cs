@@ -13,6 +13,7 @@ public sealed class RuleSearch(ArticleIndex index, IEmbedder? embedder, int cand
 
     public ArticleIndex Index => index;
     public bool UsesVectors => _embedder is not null;
+    public int CandidateCount => candidateCount;
 
     public async Task<IReadOnlyList<ArticleHit>> SearchAsync(string query, CancellationToken ct)
     {

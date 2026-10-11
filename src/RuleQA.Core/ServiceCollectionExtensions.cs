@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using RuleQA.Core.Ai;
+using RuleQA.Core.Answering;
 using RuleQA.Core.Data;
 using RuleQA.Core.Evaluation;
 using RuleQA.Core.Rules;
@@ -29,6 +30,7 @@ public static class ServiceCollectionExtensions
             baseDirectory,
             sp.GetRequiredService<ILogger<RuleImporter>>()));
         services.AddSingleton<RuleSearchService>();
+        services.AddSingleton<RuleAnswerService>();
         services.AddSingleton<SearchEvaluator>();
         return services;
     }

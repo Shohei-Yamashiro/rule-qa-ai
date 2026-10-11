@@ -12,7 +12,8 @@ public sealed record ImportResult(int Added, int Updated, int Unchanged, int Rem
     public int Changed => Added + Updated + Removed;
 }
 
-public sealed record LibraryStats(int Documents, int Superseded, int References, int Articles, int Embedded);
+/// <param name="Titles">Titles of the current regulations (not old versions or reference material), in path order.</param>
+public sealed record LibraryStats(int Documents, int Superseded, int References, int Articles, int Embedded, IReadOnlyList<string> Titles);
 
 /// <summary>Imports the .md and .txt files of a folder (including subfolders) and decides which versions are current.</summary>
 public sealed class RuleImporter(IDbContextFactory<RuleQaDbContext> dbFactory, TimeProvider clock, string baseDirectory, ILogger<RuleImporter> logger)
@@ -130,7 +131,8 @@ public sealed class RuleImporter(IDbContextFactory<RuleQaDbContext> dbFactory, T
             await db.Documents.CountAsync(d => d.IsSuperseded, ct),
             await db.Documents.CountAsync(d => d.Kind == DocumentKind.Reference, ct),
             await db.Articles.CountAsync(ct),
-            model.Length == 0 ? 0 : await db.Articles.CountAsync(a => a.Embedding != null && a.EmbeddingModel == model, ct));
+            model.Length == 0 ? 0 : await db.Articles.CountAsync(a => a.Embedding != null && a.EmbeddingModel == model, ct),
+            await db.Documents.Where(d => !d.IsSuperseded && d.Kind == DocumentKind.Regulation).OrderBy(d => d.Path).Select(d => d.BaseTitle).ToListAsync(ct));
     }
 
     /// <summary>

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Blocks pushing to main directly; changes go through a pull request.
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$remote_ref" = "refs/heads/main" ]; then
+    echo "main への直接プッシュは止めています。ブランチを切って PR からマージしてください。" >&2
+    echo "どうしても必要なときは git push --no-verify を使います。" >&2
+    exit 1
+  fi
+done
+exit 0

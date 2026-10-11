@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RuleQA.Core/RuleQA.Core.csproj" />
+    <Project Path="src/RuleQA.Web/RuleQA.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RuleQA.Tests/RuleQA.Tests.csproj" />
+  </Folder>
+</Solution>

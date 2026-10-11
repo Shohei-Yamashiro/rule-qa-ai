@@ -1,0 +1,21 @@
+---
+alwaysApply: true
+---
+# プロジェクトの方針とテスト
+
+- 方針: 無料（またはきわめて低価格）で、外部要素をできるだけ使わない。zip を解凍して `RuleQA.exe` を起動するだけで動くことを崩さない。
+  - DB は SQLite、画面は exe 内蔵の Blazor Server。Docker・DB サーバー・Node.js・Python などを必須にしない。
+  - AI は接続設定式（OpenAI 互換 API）。AI がなくても、検索で該当する条文を示せること。
+  - 実行中に作るものは、展開したフォルダの `data` の中だけに置く。`%TEMP%` やレジストリなど、フォルダの外にファイルを残さない。
+- ロジックは `src/RuleQA.Core` に置き、画面（`src/RuleQA.Web`）には置かない。
+- 変更後は `dotnet test` を実行する。ロジックを変えたら `tests/RuleQA.Tests` にテストを足す。
+  - 規則の分割と検索のロジックを変えたら、評価用の質問セット（`samples/questions.json`）での検索正解率テストの出力を確認する。
+  - サンプル規則を足したり直したりしたら、評価用の質問セットの正解の条文 ID も合わせる。
+  - AI 接続は、偽の HTTP サーバーで送信内容を確かめるテストにする。
+ - テストを足したら `[Spec(区分, 項目名, 確認内容)]` を付ける（付いていないとテストが失敗する）。テスト仕様書 `docs/test-spec.md` はここから自動で作られるので、直接編集しない。
+- 配布物を変えたら `scripts/publish.ps1` で zip を作り、展開した exe が起動することを確認する。
+- アプリの動作に関わる変更（`src`・`samples`・設定・配布物）をしたら、作業の最後に `scripts/publish.ps1` を実行し、ユーザー確認用の `RuleQA-latest\RuleQA.exe`（ルート直下、Git 管理外）を最新にする。ドキュメントやルールだけの変更では不要。
+ - `RuleQA-latest\data`（DB と設定）は作り直しても残す。
+ - `publish.ps1` はテストも実行し、`docs/test-spec.md`（テスト仕様書）と `RuleQA-latest\test-report.md`（結果を含む報告書）を作り直す。`docs/test-spec.md` に差分が出たら一緒にコミットする。
+ - 最終報告で `RuleQA-latest\RuleQA.exe` とテスト報告書を更新したことを伝える。
+- 動作確認で起動したアプリ（`dotnet run` や `RuleQA.exe`）は、確認後に自分で停止する。

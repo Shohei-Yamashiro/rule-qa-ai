@@ -1,0 +1,28 @@
+@inherits LayoutComponentBase
+
+<div class="shell">
+    <header class="app-header">
+        <FluentIcon Value="@(new Icons.Regular.Size24.BookQuestionMark())" Color="Color.Custom" CustomColor="#ffffff" />
+        <span class="app-title">社内規則 Q&amp;A</span>
+    </header>
+    <nav class="app-nav">
+        <FluentNavMenu Width="200" Collapsible="false">
+            <FluentNavLink Href="" Match="NavLinkMatch.All" Icon="@(new Icons.Regular.Size20.ChatHelp())">質問</FluentNavLink>
+            <FluentNavLink Href="settings" Match="NavLinkMatch.Prefix" Icon="@(new Icons.Regular.Size20.Settings())">設定</FluentNavLink>
+        </FluentNavMenu>
+    </nav>
+    <main class="app-body">
+        @Body
+    </main>
+</div>
+
+<FluentToastProvider />
+<FluentDialogProvider />
+<FluentTooltipProvider />
+<DemoNotice />
+
+<div id="blazor-error-ui" data-nosnippet>
+    エラーが発生しました。
+    <a href="." class="reload">再読み込み</a>
+    <span class="dismiss">×</span>
+</div>

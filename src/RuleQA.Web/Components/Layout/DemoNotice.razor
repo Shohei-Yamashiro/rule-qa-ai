@@ -1,0 +1,36 @@
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@inject IDialogService Dialogs
+@inject ProtectedSessionStorage SessionStorage
+
+@code {
+    private const string StorageKey = "demo-notice-shown";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+
+        var shown = await SessionStorage.GetAsync<bool>(StorageKey);
+        if (shown.Success && shown.Value) return;
+
+        var dialog = await Dialogs.ShowMessageBoxAsync(new DialogParameters<MessageBoxContent>
+        {
+            Content = new MessageBoxContent
+            {
+                Title = "デモアプリについて",
+                MarkupMessage = new MarkupString(
+                    "<p>このアプリは、作者のポートフォリオとして公開しているデモアプリです。</p>" +
+                    "<p>最初に入っている会社・規程・条文は、すべて架空のサンプルです。実在の会社の規則ではありません。</p>" +
+                    "<p>回答は参考情報です。実際の手続きや判断には、所属する会社の規則と担当部署の案内に従ってください。</p>" +
+                    "<p>無保証です。実際の業務で使う場合は、同梱の LICENSE.txt（利用条件）をご確認のうえ、ご自身の判断でお使いください。</p>"),
+                Icon = new Icons.Regular.Size24.Info(),
+                IconColor = Color.Accent,
+            },
+            PrimaryAction = "確認しました",
+            SecondaryAction = null,
+            PreventDismissOnOverlayClick = true,
+            Width = "480px",
+        });
+        await dialog.Result;
+        await SessionStorage.SetAsync(StorageKey, true);
+    }
+}

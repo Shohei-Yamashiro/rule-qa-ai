@@ -1,0 +1,39 @@
+社内規則 Q&A（RuleQA） 外部部品のライセンス表記
+================================================
+
+本ソフトウェアには、以下の第三者のソフトウェアが含まれています。
+これらの部品の著作権はそれぞれの権利者に帰属し、各部品には下記のライセンスが適用されます。
+本ソフトウェアの利用条件（LICENSE.txt）は、これらの部品のライセンスに優先するものではありません。
+
+ライセンスの本文は英語の原文のまま掲載しています。
+
+------------------------------------------------------------
+■ 部品の一覧
+------------------------------------------------------------
+
+[MIT License]（本文は下記「MIT License」）
+  .NET Runtime（Microsoft.NETCore.App）
+    Copyright (c) .NET Foundation and Contributors
+  ASP.NET Core Runtime（Microsoft.AspNetCore.App、Microsoft.AspNetCore.App.Internal.Assets）
+    Copyright (c) .NET Foundation and Contributors
+  Entity Framework Core（Microsoft.EntityFrameworkCore、.Abstractions、.Relational、.Sqlite、.Sqlite.Core）
+    (c) Microsoft Corporation. All rights reserved.
+  Microsoft.Data.Sqlite.Core
+    (c) Microsoft Corporation. All rights reserved.
+  Microsoft.Extensions.DependencyModel
+    (c) Microsoft Corporation. All rights reserved.
+  System.Security.Cryptography.ProtectedData
+    (c) Microsoft Corporation. All rights reserved.
+  Microsoft Fluent UI Blazor（Microsoft.FluentUI.AspNetCore.Components、.Icons）
+    (c) Microsoft Corporation. All rights reserved.
+
+[Apache License 2.0]（本文は下記「Apache License 2.0」）
+  SQLitePCLRaw（SQLitePCLRaw.core、.bundle_e_sqlite3、.provider.e_sqlite3、.lib.e_sqlite3）
+    Copyright 2014-2024 SourceGear, LLC
+
+[Public Domain]
+  SQLite（SQLitePCLRaw.lib.e_sqlite3 に含まれるデータベースエンジン、e_sqlite3.dll）
+    SQLite はパブリックドメインとして公開されています。
+    https://www.sqlite.org/copyright.html
+
+.NET Runtime と ASP.NET Core Runtime が含む第三者の部品の表記は、末尾の「Appendix」に原文のまま掲載しています。

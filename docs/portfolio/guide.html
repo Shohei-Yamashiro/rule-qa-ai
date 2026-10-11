@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>社内規則 Q&amp;A（RuleQA）のご紹介</title>
+<style>
+  @page { size: A4; margin: 14mm 16mm; }
+  :root { --accent: #0f6cbd; --accent-fill: #ebf3fc; --text: #1b1b1f; --text2: #4d5059; --text3: #7b7e87; --stroke: #d9dbe0; --surface: #f5f6f8; --ext: #fdf6e7; --ext-stroke: #e3c98f; --ai: #f1ecfb; --ai-stroke: #b9a5e3; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; color: var(--text); font: 10.5pt/1.6 "Yu Gothic UI", "Yu Gothic", "Meiryo", sans-serif; }
+  .page { break-after: page; max-width: 178mm; margin: 0 auto; }
+  .page:last-child { break-after: auto; }
+  @media screen { body { background: #e9eaee; padding: 24px 0; } .page { background: #fff; padding: 14mm 16mm; margin-bottom: 24px; max-width: 210mm; min-height: 297mm; } }
+  h1 { font-size: 22pt; margin: 0; letter-spacing: .02em; }
+  h2 { font-size: 15pt; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 2px solid var(--accent); }
+  h3 { font-size: 11.5pt; margin: 18px 0 6px; }
+  p { margin: 6px 0; }
+  .chapter { font-size: 9pt; color: var(--accent); font-weight: 600; letter-spacing: .08em; margin-bottom: 2px; }
+  .lead { color: var(--text2); font-size: 11pt; margin-top: 8px; }
+  .cover { padding: 18px 0 14px; border-bottom: 1px solid var(--stroke); margin-bottom: 18px; }
+  .muted { color: var(--text2); }
+  .small { font-size: 9pt; color: var(--text3); }
+  ul { margin: 6px 0; padding-left: 1.3em; }
+  li { margin: 3px 0; }
+  .flow { display: flex; align-items: stretch; gap: 0; margin: 12px 0 4px; }
+  .flow .step { flex: 1; border: 1px solid var(--stroke); border-radius: 6px; padding: 8px 9px; background: #fff; }
+  .flow .step.human { background: var(--accent-fill); border-color: var(--accent); }
+  .flow .step b { display: block; font-size: 10pt; }
+  .flow .step span { font-size: 8.5pt; color: var(--text2); line-height: 1.5; display: block; margin-top: 2px; }
+  .flow .arrow { width: 16px; display: flex; align-items: center; justify-content: center; color: var(--text3); font-size: 11pt; }
+  .loop { font-size: 9pt; color: var(--accent); text-align: right; margin-top: 2px; }
+
+  .box { border: 1px solid var(--stroke); border-radius: 6px; padding: 6px 9px; background: #fff; font-size: 8.5pt; line-height: 1.5; color: var(--text2); }
+  .box b { display: block; font-size: 9.5pt; color: var(--text); }
+  .box.ext { background: var(--ext); border-color: var(--ext-stroke); }
+  .box.ai { background: var(--ai); border-color: var(--ai-stroke); }
+  .box.app { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .box.app b { color: #fff; }
+  .box.human { background: var(--accent-fill); border-color: var(--accent); }
+  .harrow { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text3); font-size: 14pt; line-height: 1; padding: 0 4px; }
+  .harrow small { font-size: 7.5pt; line-height: 1.3; text-align: center; margin-top: 3px; }
+  .varrow { text-align: center; color: var(--text3); font-size: 12pt; line-height: 1.2; }
+
+  .overview { display: grid; grid-template-columns: 34mm 15mm 1fr 19mm 38mm; align-items: center; margin: 10px 0 4px; }
+  .overview .col { display: flex; flex-direction: column; gap: 2px; }
+  .overview .pc { border: 1.5px dashed var(--accent); border-radius: 8px; padding: 6px 8px 8px; }
+  .overview .pc-title { font-size: 8.5pt; font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+  .overview .pc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
+  .legend { display: flex; gap: 14px; font-size: 8pt; color: var(--text3); margin-top: 4px; }
+  .legend span::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; border: 1px solid; }
+  .legend .l-ext::before { background: var(--ext); border-color: var(--ext-stroke); }
+  .legend .l-app::before { background: var(--accent); border-color: var(--accent); }
+  .legend .l-ai::before { background: var(--ai); border-color: var(--ai-stroke); }
+
+  .m365 { margin: 10px 0 4px; }
+  .m365 .row { display: grid; grid-template-columns: 1fr 14px 1fr 14px 1fr; align-items: stretch; }
+  .m365 .harrow { font-size: 11pt; padding: 0; }
+
+  figure { margin: 4px 0 6px; break-inside: avoid; }
+  figure img { max-width: 100%; max-height: 120mm; border: 1px solid var(--stroke); border-radius: 4px; display: block; margin: 0 auto; }
+  .screen h3 { margin: 6px 0 6px; font-size: 13pt; }
+  .screen .points li { font-size: 10pt; margin: 6px 0; }
+  .points { margin: 4px 0 0; padding: 0; list-style: none; counter-reset: p; }
+  .points li { counter-increment: p; padding-left: 1.7em; position: relative; font-size: 9.5pt; }
+  .points li::before { content: counter(p); position: absolute; left: 0; top: .15em; width: 1.25em; height: 1.25em; border-radius: 50%; background: var(--accent); color: #fff; font-size: 8pt; line-height: 1.25em; text-align: center; font-weight: 600; }
+  .features { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; margin-top: 8px; }
+  .feature { border-left: 3px solid var(--accent); padding: 2px 0 2px 10px; }
+  .feature b { display: block; }
+  .feature span { color: var(--text2); font-size: 9.5pt; }
+  .steps { counter-reset: s; margin: 8px 0; padding: 0; list-style: none; }
+  .steps > li { counter-increment: s; position: relative; padding-left: 2.1em; margin: 5px 0; }
+  .steps > li::before { content: counter(s); position: absolute; left: 0; top: 0; width: 1.5em; height: 1.5em; border-radius: 50%; border: 1.5px solid var(--accent); color: var(--accent); font-weight: 700; line-height: 1.4em; text-align: center; font-size: 10pt; }
+  .smartscreen { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 8px 0 4px; }
+  .ss { background: #0f5ea8; color: #fff; padding: 12px 14px 10px; border-radius: 2px; font-size: 8pt; line-height: 1.55; min-height: 128px; position: relative; }
+  .ss .t { font-size: 12pt; margin-bottom: 8px; }
+  .ss .link { text-decoration: underline; font-weight: 600; outline: 2px solid #ffd54a; outline-offset: 2px; }
+  .ss .btns { position: absolute; right: 12px; bottom: 10px; display: flex; gap: 6px; }
+  .ss .btn { border: 1px solid #fff; padding: 2px 14px; }
+  .ss .btn.run { outline: 2px solid #ffd54a; outline-offset: 2px; font-weight: 600; }
+  .ss .lbl { position: absolute; left: -2px; top: -18px; color: var(--text2); font-size: 8.5pt; }
+  .note { background: var(--surface); border-radius: 6px; padding: 8px 12px; font-size: 9.5pt; margin: 10px 0; }
+  .qa { margin: 0 0 12px; }
+  .qa dt { font-weight: 700; margin-top: 8px; }
+  .qa dt::before { content: "Q. "; color: var(--accent); }
+  .qa dd { margin: 3px 0 0 1.6em; color: var(--text); }
+  table { border-collapse: collapse; width: 100%; font-size: 9.5pt; margin: 6px 0; }
+  th, td { border-bottom: 1px solid var(--stroke); padding: 5px 8px; text-align: left; vertical-align: top; }
+  th { width: 26%; color: var(--text2); font-weight: 600; background: var(--surface); }
+  table.compare th { width: 17%; }
+  table.compare thead th { background: #fff; color: var(--text); border-bottom: 2px solid var(--accent); width: auto; }
+  table.compare td { font-size: 9pt; }
+</style>
+</head>
+<body>
+
+<!-- 1. ご紹介 -->
+<section class="page">
+  <div class="cover">
+    <div class="chapter">ご紹介</div>
+    <h1>社内規則 Q&amp;A</h1>
+    <p class="lead">就業規則や旅費規程などの社内規則についての質問に、根拠の条文を添えて答える Windows 用のアプリです。<br>規則に書かれていないことは「規則には記載がありません」と答えます。</p>
+  </div>
+
+  <h2>全体の概要</h2>
+  <div class="overview">
+    <div class="col">
+      <div class="box ext"><b>規則の文書</b>就業規則・旅費規程などを .md / .txt で保存したフォルダ</div>
+    </div>
+    <div class="harrow">→<small>取り込み</small></div>
+    <div class="pc">
+      <div class="pc-title">お使いのパソコン</div>
+      <div class="box app"><b>RuleQA（このアプリ）</b>条文に分けて取り込み → 質問に近い条文を検索 → 根拠を添えて回答</div>
+      <div class="pc-row">
+        <div class="box"><b>data フォルダ</b>規則・履歴・評価・設定を保存</div>
+        <div class="box human"><b>ブラウザの画面</b>社員が質問し、管理者が規則を取り込む</div>
+      </div>
+    </div>
+    <div class="harrow">⇄<small>質問と条文を送り<br>回答を受け取る</small></div>
+    <div class="col">
+      <div class="box ai"><b>AI（使う場合）</b>クラウドの AI<br>（Azure OpenAI など）<br>または、パソコン内で動く AI（Ollama など）</div>
+    </div>
+  </div>
+  <div class="legend"><span class="l-ext">規則の文書</span><span class="l-app">このアプリ</span><span class="l-ai">AI（任意）</span></div>
+  <p class="small">AI を使わない場合は、質問に近い条文を検索して表示し、外部とは通信しません。</p>
+
+  <h2 style="margin-top:18px">こんな困りごとはありませんか</h2>
+  <ul>
+    <li>「出張の日当はいくら？」「有給は何日前までに申請？」など、同じ質問が総務・人事に何度も届く</li>
+    <li>どの規程の何条に書いてあるのかがわからず、探すのに時間がかかる</li>
+    <li>改定前の古い規程や、古い FAQ を見て答えてしまう</li>
+    <li>一般的なチャット AI に聞くと、もっともらしいけれど社内の規則にはない答えが返ってくる</li>
+  </ul>
+
+  <h2 style="margin-top:18px">このアプリがすること</h2>
+  <div class="flow">
+    <div class="step"><b>規則を取り込む</b><span>規則の文書を「第○条」ごとに分けて取り込みます</span></div>
+    <div class="arrow">›</div>
+    <div class="step"><b>質問を受ける</b><span>ふだんの言葉で質問できます。前の会話を踏まえた質問もできます</span></div>
+    <div class="arrow">›</div>
+    <div class="step"><b>条文を探す</b><span>取り込んだ条文から、質問に近いものを探します</span></div>
+    <div class="arrow">›</div>
+    <div class="step"><b>根拠を添えて答える</b><span>規程名と条番号を添えて答えます。書いていないことは「記載なし」と答えます</span></div>
+    <div class="arrow">›</div>
+    <div class="step human"><b>人が確かめる</b><span>条文をその場で開いて確かめ、回答が役に立ったかを評価します</span></div>
+  </div>
+  <p class="loop">評価の結果をもとに、検索と AI への指示を見直せます</p>
+</section>
+
+<section class="page">
+  <div class="chapter">ご紹介</div>
+  <h2>特長</h2>
+  <div class="features">
+    <div class="feature"><b>根拠の条文がわかる</b><span>回答には、根拠にした規程名と条番号を添えます。<br>押すとその場で条文を開けるので、元の規則ですぐに確かめられます。</span></div>
+    <div class="feature"><b>書いていないことは答えない</b><span>取り込んだ規則に答えがないときは「規則には記載がありません」と答えます。<br>天気など規則と関係のない質問には「対象外」と答えます。</span></div>
+    <div class="feature"><b>AI がなくても使える</b><span>AI を使わない設定でも、質問に近い条文を検索して示します。<br>AI を使う場合は、クラウドの AI と、パソコンの中で動く AI から選べます。</span></div>
+    <div class="feature"><b>規則の改定に合わせやすい</b><span>規則のファイルを直すと、どの条文が変わったかを示し、確かめてから取り込めます。<br>旧版や参考資料（FAQ など）は、規程と区別して扱います。</span></div>
+    <div class="feature"><b>答えの正しさを測れる</b><span>評価用の質問で、検索と回答の正解率を測れます。<br>AI への指示やモデルを変えたときの効果を、保存する前に比べられます。</span></div>
+    <div class="feature"><b>データは手元に</b><span>取り込んだ規則や質問の履歴は、このアプリのフォルダの中に保存します。</span></div>
+  </div>
+
+  <h3 style="margin-top:22px">今後の予定</h3>
+  <ul>
+    <li>Word・PDF の規則の文書を、そのまま取り込む</li>
+    <li>ログインと、利用者ごとの権限（現在はデモのため、全員を管理者として扱っています）</li>
+    <li>Teams など、社内のチャットから質問できるようにする</li>
+  </ul>
+
+  <h3 style="margin-top:22px">制作について</h3>
+  <p>このアプリは、作者が AI コーディングエージェント（Cursor）と協働して開発しました。<br>
+  要件と設計の判断、動作の確認は作者が行い、コードの作成は主に AI エージェントが担当しています。</p>
+  <p>AI で回答する部分は、作者のパソコンで Ollama（パソコン内で動く AI、モデルは qwen2.5:7b）を使って動作を確認しています。<br>
+  ほかの接続先（Azure OpenAI・OpenAI・Gemini など）も同じ方式（OpenAI 互換 API）で接続できますが、作者は動作を確認していません。</p>
+</section>
+
+<!-- 2. 画面の紹介 -->
+<section class="page">
+  <div class="chapter">ご紹介</div>
+  <h2>画面の紹介</h2>
+
+  <div class="screen">
+    <h3>質問（AI を使う場合）</h3>
+    <figure><img src="images/chat.png" alt="質問の画面"></figure>
+    <ol class="points">
+      <li>質問を入力して「送信」を押します。<br>「海外の場合は？」のように、前の会話を踏まえた質問もできます。「新しい会話」で最初からやり直せます。</li>
+      <li>回答には「根拠の条文」を添えます。<br>押すと、条文の本文と、ファイル名・施行日を表示します。「規則一覧で開く」で、規程全体を確かめられます。</li>
+      <li>「役に立った」「役に立たなかった」で回答を評価します。<br>役に立たなかったときは、理由をコメントで残せます。</li>
+    </ol>
+  </div>
+</section>
+
+<section class="page">
+  <div class="chapter">ご紹介</div>
+  <h2>画面の紹介</h2>
+
+  <div class="screen">
+    <h3>質問（AI を使わない場合）</h3>
+    <figure><img src="images/search-only.png" alt="AI を使わない場合の質問の画面"></figure>
+    <ol class="points">
+      <li>AI を使わない設定では、質問に近い条文を「該当しそうな条文」として、近い順に表示します。<br>外部とは通信しません。</li>
+      <li>FAQ などの参考資料には「参考資料」の印を付け、規程と区別します。<br>改定前の旧版は、初期設定では検索の対象にしません。</li>
+      <li>設定で埋め込みモデルを指定すると、言葉が一致しない質問（「有給」と「年次有給休暇」など）でも、意味の近い条文を探せます。</li>
+    </ol>
+  </div>
+</section>
+
+<section class="page">
+  <div class="chapter">ご紹介</div>
+  <h2>画面の紹介</h2>
+
+  <div class="screen">
+    <h3>規則一覧（取り込みの管理）</h3>
+    <figure><img src="images/rules.png" alt="規則一覧と取り込みの管理"></figure>
+    <ol class="points">
+      <li>規則のフォルダのファイルが追加・変更・削除されると、画面の上部に案内を表示します。</li>
+      <li>「取り込みの管理」で、ファイルごとの変更と、どの条文が変わったか（「変更 第6条」など）を確かめられます。</li>
+      <li>「選んだものを取り込む」「変更をすべて取り込む」「すべて取り込み直す」から選んで取り込みます。<br>取り込みは管理者が行い、「取り込みの記録」に残ります。</li>
+    </ol>
+  </div>
+</section>
+
+<section class="page">
+  <div class="chapter">ご紹介</div>
+  <h2>画面の紹介</h2>
+
+  <div class="screen">
+    <h3>規則一覧（規程と条文）</h3>
+    <figure><img src="images/rules-detail.png" alt="規程と条文の表示"></figure>
+    <ol class="points">
+      <li>取り込んだ規程を、章・条の単位で表示します。<br>上の検索欄で、規程名・条番号・見出し・本文から条文を探せます。</li>
+      <li>条番号の抜けや重複など、取り込むときに気づいた点を「警告」として表示します。<br>規則の文書の見直しに使えます。</li>
+      <li>「この規程を取り込み直す」で、この規程だけを読み直せます。<br>「旧版も表示する」で、改定前の版も確かめられます。</li>
+    </ol>
+  </div>
+</section>
+
+<section class="page">
+  <div class="chapter">ご紹介</div>
+  <h2>画面の紹介</h2>
+
+  <div class="screen">
+    <h3>履歴</h3>
+    <figure><img src="images/history.png" alt="履歴の画面"></figure>
+    <ol class="points">
+      <li>これまでの質問と回答を一覧にします。<br>文字で絞り込めるほか、「回答」「記載なし」「検索のみ」「対象外」で分けて表示できます。</li>
+      <li>「役に立った」「役に立たなかった」で絞り込めます。<br>評価された回答のうち、役に立った割合も表示します。</li>
+      <li>開くと回答の全文を表示します。<br>「この会話を続ける」で、その会話の続きから質問できます。</li>
+    </ol>
+  </div>
+</section>
+
+<section class="page">
+  <div class="chapter">ご紹介</div>
+  <h2>画面の紹介</h2>
+
+  <div class="screen">
+    <h3>設定（AI の接続先）</h3>
+    <figure><img src="images/settings.png" alt="設定画面の AI の接続先"></figure>
+    <ol class="points">
+      <li>「使う AI」で、AI を使わない（検索のみ）か、OpenAI 互換 API を使うかを選びます。<br>Azure OpenAI・OpenAI・Gemini・Ollama・LM Studio のボタンで、入力欄の例を埋められます。</li>
+      <li>「接続テスト」で、保存する前の設定で AI に接続できるかを確かめられます。</li>
+      <li>「規則の取り込み」で、規則のフォルダや、AI に渡す条文の数を設定します。<br>変更は「保存」を押すと反映されます。</li>
+    </ol>
+  </div>
+</section>
+
+<section class="page">
+  <div class="chapter">ご紹介</div>
+  <h2>画面の紹介</h2>
+
+  <div class="screen">
+    <h3>設定（AI への指示）</h3>
+    <figure><img src="images/prompt.png" alt="AI への指示の設定"></figure>
+    <ol class="points">
+      <li>回答を作るときに AI に渡す指示（プロンプト）を、管理者が編集できます。<br>「既定に戻す」で、いつでも最初の指示に戻せます。</li>
+      <li>根拠の条文を確かめるための指示は「常に付け足す指示」として固定し、編集できないようにしています。<br>指示を書き換えても、根拠の条文を添える仕組みは崩れません。</li>
+    </ol>
+  </div>
+</section>
+
+<section class="page">
+  <div class="chapter">ご紹介</div>
+  <h2>画面の紹介</h2>
+
+  <div class="screen">
+    <h3>設定（評価）</h3>
+    <figure><img src="images/eval.png" alt="評価の結果"></figure>
+    <ol class="points">
+      <li>評価用の質問（付属のサンプルは 39 問）で、「検索を評価（AI なし）」と「回答を評価（AI を使う）」を実行できます。<br>保存する前の設定で実行するので、変更の効果を確かめてから保存できます。</li>
+      <li>根拠の条文が合っているか、答えないのが正解の質問に答えなかったかなどを、割合と質問ごとの判定で示します。<br>結果は「これまでの評価」に残ります。</li>
+      <li>自社の規則で使うときは、data フォルダに評価用の質問（questions.json）を置くと、そちらを使います。</li>
+    </ol>
+    <p class="small">画面は、作者のパソコンで Ollama（qwen2.5:7b）を使って評価した例です。結果は、使う AI や規則の内容によって変わります。</p>
+  </div>
+</section>
+
+<!-- 3. はじめかた -->
+<section class="page">
+  <div class="chapter">はじめかた</div>
+  <h2>はじめかた</h2>
+
+  <p class="note"><b>動作環境：</b>Windows 10 / 11（64 ビット版）。<br>インストールは不要で、.NET などを別に入れる必要もありません。<br>画面はパソコンに入っているブラウザ（Edge、Chrome など）で表示します。<br>Mac・スマートフォンには対応していません。</p>
+
+  <ol class="steps">
+    <li><b>ダウンロードする</b><br>Google Drive のページで zip ファイルをダウンロードします。<br>ブラウザや Google Drive が「ウイルス スキャンを実行できません」などの確認を表示した場合は、内容を確認のうえダウンロードを続けてください。</li>
+    <li><b>展開する</b><br>ダウンロードした zip ファイルを右クリックし、「すべて展開」を選びます。<br>zip のまま中のファイルを開くと、正しく動きません。<br>
+      <span class="small">展開する前に、zip ファイルを右クリック →「プロパティ」→「許可する」にチェック →「OK」とすると、次の手順の警告が出なくなる場合があります。</span></li>
+    <li><b>起動する</b><br>展開したフォルダの <b>RuleQA.exe</b> をダブルクリックします。<br>黒いウィンドウが開き、続けてブラウザで画面が開きます。<br>
+      初めて起動するとき、次のような警告が出ることがあります。<br><b>「詳細情報」を押し、表示された「実行」を押してください。</b>
+      <div class="smartscreen" style="margin-top:24px">
+        <div class="ss"><div class="lbl">① 最初の画面</div>
+          <div class="t">Windows によって PC が保護されました</div>
+          Microsoft Defender SmartScreen は認識されないアプリの起動を停止しました。このアプリを実行すると、PC に問題が起こる可能性があります。<br><br>
+          <span class="link">詳細情報</span>
+          <div class="btns"><span class="btn">実行しない</span></div>
+        </div>
+        <div class="ss"><div class="lbl">② 「詳細情報」を押した後</div>
+          <div class="t">Windows によって PC が保護されました</div>
+          Microsoft Defender SmartScreen は認識されないアプリの起動を停止しました。このアプリを実行すると、PC に問題が起こる可能性があります。<br>
+          アプリ: RuleQA.exe<br>発行元: 不明な発行元
+          <div class="btns"><span class="btn run">実行</span><span class="btn">実行しない</span></div>
+        </div>
+      </div>
+      <p class="small">画面は一例です。Windows のバージョンによって表示が異なります。<br>この警告は、発行元を証明する電子署名を付けていないアプリで表示されます。</p></li>
+  </ol>
+</section>
+
+<section class="page">
+  <div class="chapter">はじめかた</div>
+  <h2>はじめかた（続き）</h2>
+
+  <ol class="steps" style="counter-reset: s 3">
+    <li><b>試してみる</b><br>
+      最初に出る「デモアプリについて」を確認して「確認しました」を押します。<br>
+      初めて起動したときに、架空の会社「サンプル商事」の規則（8 ファイル）を自動で取り込みます。<br>
+      「質問」で例の質問を押すか、「国内出張の日当はいくら？」などと入力して「送信」を押してください。<br>
+      初期設定は AI を使わない設定のため、質問に近い条文を表示します。<br>
+      AI を使う場合は、「設定」の「AI の接続先」で接続先を指定して「保存」を押します。<br>
+      <span class="small">サンプルの会社・規程・条文は、すべて架空のものです。<br>わざと、旧版の規程や、規程どうしで内容が食い違う箇所を含めています。</span></li>
+    <li><b>終了する</b><br>黒いウィンドウを閉じると終了します。<br>ブラウザの画面を閉じただけでは終了しません。</li>
+  </ol>
+
+  <h3>削除するとき</h3>
+  <p>黒いウィンドウを閉じてから、展開したフォルダごと削除してください。<br>
+  このアプリは、展開したフォルダの外にファイルを作らず、レジストリも使いません。</p>
+
+  <h3>うまく動かないとき</h3>
+  <ul>
+    <li><b>ブラウザが開かない：</b>ブラウザで http://localhost:5090 を開いてください。</li>
+    <li><b>黒いウィンドウがすぐに閉じる：</b>RuleQA がすでに起動しているか、他のアプリが同じ番号（ポート 5090）を使っています。<br>
+      起動中の RuleQA を閉じるか、アプリのフォルダの appsettings.json にある "Urls" を書き換えてください（例："http://localhost:5091"）。</li>
+    <li><b>画面が操作できなくなった：</b>黒いウィンドウが閉じていないか確認し、ブラウザの画面を再読み込みしてください。</li>
+  </ul>
+</section>
+
+<!-- 4. よくある質問 -->
+<section class="page">
+  <div class="chapter">よくある質問</div>
+  <h2>よくある質問</h2>
+  <dl class="qa">
+    <dt>起動時に警告が出ました。安全ですか？</dt>
+    <dd>この警告は、発行元を証明する電子署名を付けていないアプリで表示されるものです（署名には費用がかかるため、付けていません）。<br>
+      本アプリは、作者が公開している Google Drive のページからのみ配布しています。<br>
+      それ以外の場所から入手したファイルは使わないでください。</dd>
+
+    <dt>費用はかかりますか？</dt>
+    <dd>本アプリは無料です。<br>
+      AI を使わない設定や、パソコン内で動く AI（Ollama など）を使う場合は、ほかに費用はかかりません。<br>
+      クラウドの AI サービスに接続する場合は、そのサービスの利用料金がかかることがあります（各サービスの規約に従います）。</dd>
+
+    <dt>AI がなくても使えますか？</dt>
+    <dd>使えます。<br>
+      初期設定は AI を使わない設定で、質問に近い条文を検索して表示します。<br>
+      AI を接続すると、条文をもとにした回答の文章と、「規則には記載がありません」の判定を加えます。</dd>
+
+    <dt>どの AI で動作を確認していますか？</dt>
+    <dd>作者のパソコンで、Ollama（パソコン内で動く AI、モデルは qwen2.5:7b）を使って動作を確認しています。<br>
+      Azure OpenAI・OpenAI・Gemini・LM Studio なども同じ方式（OpenAI 互換 API）で接続できますが、作者は確認していません。<br>
+      接続できるかは、「設定」の「接続テスト」で確かめてください。</dd>
+
+    <dt>データはどこに保存されますか？外部に送られることはありますか？</dt>
+    <dd>取り込んだ規則・質問の履歴・評価・設定は、アプリのフォルダの中の「data」フォルダに保存します。<br>
+      作者がこれらの情報を受け取ることはありません。<br>
+      ただし、設定で AI の接続先を指定すると、質問と、検索で見つかった規則の条文がその接続先に送られます。<br>
+      送ってよい情報かどうかは、ご自身（社内の規則）でご判断ください。<br>
+      パソコンの中で動く AI（Ollama など）を指定した場合は、外部には送られません。</dd>
+
+    <dt>自分の会社の規則で使えますか？</dt>
+    <dd>規則を .md（Markdown）または .txt のファイルにして 1 つのフォルダに入れ、「設定」の「規則の取り込み」でそのフォルダを指定します。<br>
+      Word・PDF には、現在は対応していません。テキストに保存し直してください。<br>
+      規則を取り込む権限があることを確認のうえ、社内の規則に従ってお使いください。</dd>
+
+    <dt>回答はどのくらい正確ですか？</dt>
+    <dd>規則の書き方や、使う AI によって変わります。<br>
+      AI の回答には誤りが含まれることがあるため、根拠の条文を開いて確かめられるようにしています。<br>
+      「設定」の「評価」で、評価用の質問を使って正解率を測れます。<br>
+      作者のパソコン（Ollama・qwen2.5:7b）では、付属の 39 問で、根拠の条文の一致が 91%、答えないのが正解の質問への対応が 100% でした。</dd>
+
+    <dt>ほかのパソコンやスマートフォンから使えますか？</dt>
+    <dd>使えません。画面は、アプリを起動した Windows のパソコンの中だけで表示します。</dd>
+  </dl>
+</section>
+
+<!-- 5. 参考：Microsoft 365 で作る場合 -->
+<section class="page">
+  <div class="chapter">参考</div>
+  <h2>参考：Microsoft 365 で同じ仕組みを作る場合</h2>
+  <p>Microsoft 365 Copilot を使っている組織では、規則の文書を SharePoint に置き、その文書だけをもとに答えるエージェントを作ることで、同じような仕組みを作れます。<br>
+  構成の一例を示します。</p>
+
+  <div class="m365">
+    <div class="row">
+      <div class="box ext"><b>SharePoint のライブラリ</b>規則の文書（Word・PDF など）を置く</div>
+      <div class="harrow">→</div>
+      <div class="box ai"><b>エージェント</b>（SharePoint のエージェント、または Copilot Studio で作成）<br>ライブラリの文書だけをもとに答える</div>
+      <div class="harrow">→</div>
+      <div class="box human"><b>Teams・Microsoft 365 Copilot Chat</b>社員が質問し、出典の文書を開いて確かめる</div>
+    </div>
+  </div>
+
+  <h3>RuleQA との対応</h3>
+  <table class="compare">
+    <thead><tr><th></th><th>RuleQA</th><th>Microsoft 365 で作る場合</th></tr></thead>
+    <tr><th>規則の文書</th><td>.md / .txt のファイル（Word・PDF は未対応）</td><td>Word・PDF などをそのまま置ける</td></tr>
+    <tr><th>根拠の示し方</th><td>規程名と条番号を添え、条文をその場で表示<br>AI が示した条文を、取り込んだ条文と照らし合わせる</td><td>出典の文書へのリンクを添える</td></tr>
+    <tr><th>記載がないとき</th><td>「規則には記載がありません」「対象外」と答えるよう、指示と回答の形式で決めている</td><td>エージェントへの指示で頼めるが、ふるまいは製品側で決まる部分が大きい</td></tr>
+    <tr><th>規則の改定</th><td>条文ごとの変更を確かめてから取り込む<br>旧版・参考資料を区別して扱う</td><td>ライブラリの文書を差し替えると反映される<br>版の管理は SharePoint の機能を使う</td></tr>
+    <tr><th>答えの確かめ方</th><td>評価用の質問で正解率を測り、変更の前後を比べる</td><td>エージェントのテスト画面などで確かめる</td></tr>
+    <tr><th>利用者と権限</th><td>1 台のパソコンで使う（デモのため、全員を管理者として扱う）</td><td>Microsoft 365 のアカウントと、SharePoint のアクセス権に従う</td></tr>
+    <tr><th>必要なもの</th><td>Windows のパソコン（AI は任意）</td><td>Microsoft 365 と、Microsoft 365 Copilot のライセンスや Copilot Studio の利用契約など</td></tr>
+  </table>
+
+  <h3>向いている場面</h3>
+  <ul>
+    <li><b>RuleQA：</b>手元のパソコンで小さく試したい場合や、条文単位の根拠と正解率で答えの質を確かめたい場合。<br>規則を社外の AI に送れない場合は、パソコン内で動く AI と組み合わせられます。</li>
+    <li><b>Microsoft 365：</b>すでに Microsoft 365 Copilot を使っていて、Word・PDF の規則をそのまま使い、社員が Teams から質問できるようにしたい場合。</li>
+    <li><b>社内 FAQ チャットボットのサービス：</b>問い合わせの集計や、運用のサポートまで含めて任せたい場合。</li>
+  </ul>
+  <p class="small">この構成は一例です。<br>機能の名前・提供内容・ライセンスは変わることがあるため、各社の最新の情報をご確認ください。</p>
+</section>
+
+<!-- 6. 利用条件 -->
+<section class="page">
+  <div class="chapter">利用条件</div>
+  <h2>利用条件の要約</h2>
+  <p>ご利用の前に、同梱の <b>LICENSE.txt</b>（利用条件）をお読みください。<br>主な内容は次のとおりです。<br>正式な内容は LICENSE.txt の記載に従います。</p>
+  <table>
+    <tr><th>利用</th><td>個人・法人、営利・非営利を問わず、無償で利用できます。</td></tr>
+    <tr><th>再配布</th><td>作者の許諾なく、本アプリを第三者に配布することはできません（改変の有無を問いません）。<br>ダウンロードページへのリンクを伝えることは自由です。</td></tr>
+    <tr><th>改変など</th><td>本アプリの改変、改変したものの配布、販売・貸与はできません。</td></tr>
+    <tr><th>取り込む文書</th><td>本アプリに取り込む規則などの文書は、取り込んで利用する権限があることを、利用者が確認してください。</td></tr>
+    <tr><th>無保証</th><td>本アプリは現状のまま提供され、作者は一切の保証をしません。<br>回答・示された条文・「規則には記載がありません」との回答には、誤りや漏れが含まれることがあります。<br>実際の手続きや判断は、所属する組織の規則と担当部署の案内に従ってください。</td></tr>
+    <tr><th>責任の制限</th><td>本アプリの利用によって生じた損害について、作者は責任を負いません（作者の故意または重大な過失による場合を除きます）。</td></tr>
+    <tr><th>外部サービス</th><td>AI サービスの利用には、それぞれの提供者の規約が適用されます。</td></tr>
+    <tr><th>外部部品</th><td>本アプリに含まれる外部の部品には、それぞれのライセンスが適用されます（同梱の THIRD-PARTY-NOTICES.txt）。</td></tr>
+  </table>
+</section>
+
+</body>
+</html>

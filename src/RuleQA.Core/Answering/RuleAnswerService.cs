@@ -42,19 +42,31 @@ public sealed partial class RuleAnswerService(RuleSearchService search, AiClient
 
     private const int RrfK = 60;
 
-    public const string DefaultSystemPrompt = """
+    /// <summary>The instructions an administrator can edit in the settings (<see cref="AiSettings.Instructions"/>).</summary>
+    public const string DefaultInstructions = """
         あなたは社内規則についての質問に答えるアシスタントです。次のルールを守って、日本語で答えてください。
         - 「候補の条文」に書かれていることだけを根拠に答える。候補にないことは、一般論や推測で補わない。
-        - 根拠にした条文の ID を citations に入れる。ID は条文の前の [ ] の中の「A1」「A2」などで、規程名や条番号ではない。回答文には ID ではなく規程名と条番号を書く。
-        - 候補の条文に答えが書かれていなければ、answered を false、citations を空にする。
         - off_topic は、質問が会社や仕事とまったく関係がない（天気、ニュース、一般的な知識、雑談、飲食店など）ときだけ true にする。「取り込んだ規程」の名前に関係する質問や、給与・賞与・退職金・福利厚生・社内行事・人事・勤怠・設備など、会社や仕事についての質問は、候補に答えがなくても off_topic を false にする（そのときは answered を false にする）。
         - 規程どうしで内容が食い違うときは、両方の条文を citations に入れ、食い違っていることを回答に書く。どちらを優先するかの定めが候補の条文にあれば、それに従って結論を書く。
         - 〔参考資料〕の文書より規程を優先する。参考資料と規程が食い違うときは規程に従い、参考資料だけが根拠のときはそのことを書く。
         - 〔旧版〕の条文は、今の取り扱いの根拠にしない。過去の取り扱いを聞かれたときだけ使う。
         - 会話の続きの質問は、これまでの会話を踏まえて何を聞いているかを判断する。
+        """;
+
+    /// <summary>Always appended to the instructions, because the answer is read and its citations checked by these rules.</summary>
+    public const string FixedInstructions = """
+        - 根拠にした条文の ID を citations に入れる。ID は条文の前の [ ] の中の「A1」「A2」などで、規程名や条番号ではない。回答文には ID ではなく規程名と条番号を書く。
+        - 候補の条文に答えが書かれていなければ、answered を false、citations を空にする。
         出力は次の JSON オブジェクトだけにする。
         {"answer": "回答文", "citations": ["A1"], "answered": true, "off_topic": false}
         """;
+
+    public static bool IsDefaultInstructions(string? instructions) =>
+        string.IsNullOrWhiteSpace(instructions) || instructions.ReplaceLineEndings("\n").Trim() == DefaultInstructions.ReplaceLineEndings("\n").Trim();
+
+    /// <param name="instructions">Edited instructions; empty uses <see cref="DefaultInstructions"/>.</param>
+    public static string SystemPrompt(string? instructions) =>
+        (IsDefaultInstructions(instructions) ? DefaultInstructions : instructions!).Trim() + "\n" + FixedInstructions;
 
     /// <summary>The reply to an off-topic question, naming the imported regulations so it fits any company's rules.</summary>
     public static string OffTopicText(IReadOnlyList<string> titles)
@@ -81,10 +93,11 @@ public sealed partial class RuleAnswerService(RuleSearchService search, AiClient
     public async Task<RuleAnswer> AnswerAsync(string question, IReadOnlyList<ConversationTurn> history, AppSettings settings, CancellationToken ct = default)
     {
         var rules = await search.OpenAsync(settings, ct);
-        return await AnswerAsync(rules, ai.CreateChat(settings.Ai), question, history, ct);
+        return await AnswerAsync(rules, ai.CreateChat(settings.Ai), question, history, settings.Ai.Instructions, ct);
     }
 
-    public async Task<RuleAnswer> AnswerAsync(RuleSearch rules, IChatClient? chat, string question, IReadOnlyList<ConversationTurn> history, CancellationToken ct = default)
+    /// <param name="instructions">Edited instructions; empty uses <see cref="DefaultInstructions"/>.</param>
+    public async Task<RuleAnswer> AnswerAsync(RuleSearch rules, IChatClient? chat, string question, IReadOnlyList<ConversationTurn> history, string? instructions = null, CancellationToken ct = default)
     {
         var recent = history.TakeLast(HistoryTurns).ToList();
         var candidates = await FindCandidatesAsync(rules, question, recent, ct);
@@ -97,7 +110,7 @@ public sealed partial class RuleAnswerService(RuleSearchService search, AiClient
         AiAnswer reply;
         try
         {
-            reply = await chat.CompleteJsonAsync(BuildMessages(question, recent, candidates, rules.Index.Titles), Format, Parse, ct);
+            reply = await chat.CompleteJsonAsync(BuildMessages(question, recent, candidates, rules.Index.Titles, instructions), Format, Parse, ct);
         }
         catch (Exception e) when (e is AiConnectionException or FormatException)
         {
@@ -145,7 +158,7 @@ public sealed partial class RuleAnswerService(RuleSearchService search, AiClient
     }
 
     /// <param name="titles">The current regulations, so the AI knows the scope of the rules when judging off-topic questions.</param>
-    public static List<ChatMessage> BuildMessages(string question, IReadOnlyList<ConversationTurn> history, IReadOnlyList<ArticleHit> candidates, IReadOnlyList<string> titles)
+    public static List<ChatMessage> BuildMessages(string question, IReadOnlyList<ConversationTurn> history, IReadOnlyList<ArticleHit> candidates, IReadOnlyList<string> titles, string? instructions = null)
     {
         var sb = new StringBuilder();
         if (titles.Count > 0)
@@ -175,7 +188,7 @@ public sealed partial class RuleAnswerService(RuleSearchService search, AiClient
         sb.AppendLine();
         sb.AppendLine("## 質問");
         sb.Append(question.Trim());
-        return [ChatMessage.System(DefaultSystemPrompt), ChatMessage.User(sb.ToString())];
+        return [ChatMessage.System(SystemPrompt(instructions)), ChatMessage.User(sb.ToString())];
     }
 
     private static string IdOf(int index) => $"A{index + 1}";

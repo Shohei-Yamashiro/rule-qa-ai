@@ -118,6 +118,29 @@
                 {
                     <div class="sub missing">今の規則にない条文：@string.Join("、", turn.Missing)</div>
                 }
+                @if (turn.RecordId is not null)
+                {
+                    <div class="feedback">
+                        <span class="sub">この回答は役に立ちましたか？</span>
+                        <FluentButton Appearance="@(turn.Feedback == Feedback.Helpful ? Appearance.Accent : Appearance.Outline)" IconStart="@(new Icons.Regular.Size16.ThumbLike())" OnClick="() => SetFeedbackAsync(turn, Feedback.Helpful)">役に立った</FluentButton>
+                        <FluentButton Appearance="@(turn.Feedback == Feedback.NotHelpful ? Appearance.Accent : Appearance.Outline)" IconStart="@(new Icons.Regular.Size16.ThumbDislike())" OnClick="() => SetFeedbackAsync(turn, Feedback.NotHelpful)">役に立たなかった</FluentButton>
+                        @if (turn.Feedback is not null)
+                        {
+                            <span class="sub">ありがとうございます（もう一度押すと取り消せます）</span>
+                        }
+                    </div>
+                    @if (turn.Feedback == Feedback.NotHelpful)
+                    {
+                        <div class="feedback-comment">
+                            <FluentTextField Placeholder="よければ理由を一言（任意）" Immediate="true" @bind-Value="turn.CommentDraft" Maxlength="200" />
+                            <FluentButton Appearance="Appearance.Outline" Disabled="@(string.IsNullOrWhiteSpace(turn.CommentDraft) || turn.CommentDraft?.Trim() == turn.Comment)" OnClick="() => SaveCommentAsync(turn)">送る</FluentButton>
+                            @if (turn.Comment is not null)
+                            {
+                                <span class="sub">送った理由：@turn.Comment</span>
+                            }
+                        </div>
+                    }
+                }
             }
         </section>
     }
@@ -134,6 +157,21 @@
         public string Question { get; } = question;
         public RuleAnswer? Answer { get; set; }
         public IReadOnlyList<string> Missing { get; init; } = [];
+
+        /// <summary>The saved history record, for feedback; null when saving failed.</summary>
+        public int? RecordId { get; set; }
+
+        public Feedback? Feedback { get; set; }
+        public string? Comment { get; set; }
+        public string? CommentDraft { get; set; }
+
+        public void Apply(QaRecord record)
+        {
+            RecordId = record.Id;
+            Feedback = record.Feedback;
+            Comment = record.FeedbackComment;
+            CommentDraft ??= record.FeedbackComment;
+        }
     }
 
     /// <summary>A conversation from the history to continue.</summary>
@@ -184,7 +222,11 @@
         _notFound = entries.Count == 0;
         _conversationId = _restored ? ConversationParameter : QaHistory.NewConversationId();
         foreach (var entry in entries)
-            _turns.Add(new Turn(entry.Record.Question) { Answer = entry.ToAnswer(), Missing = entry.MissingKeys });
+        {
+            var turn = new Turn(entry.Record.Question) { Answer = entry.ToAnswer(), Missing = entry.MissingKeys };
+            turn.Apply(entry.Record);
+            _turns.Add(turn);
+        }
     }
 
     private string AiStatus => Store.Current.Ai is { Provider: AiProvider.OpenAiCompatible } ai
@@ -222,7 +264,7 @@
         }
         try
         {
-            await History.SaveAsync(_conversationId, turn.Answer, watch.Elapsed);
+            turn.Apply(await History.SaveAsync(_conversationId, turn.Answer, watch.Elapsed));
         }
         catch (Exception e)
         {
@@ -230,6 +272,22 @@
         }
         StateHasChanged();
         _input?.FocusAsync();
+    }
+
+    /// <summary>Pressing the selected button again clears the feedback.</summary>
+    private async Task SetFeedbackAsync(Turn turn, Feedback feedback)
+    {
+        if (turn.RecordId is not { } id) return;
+        var value = turn.Feedback == feedback ? (Feedback?)null : feedback;
+        var record = await History.SetFeedbackAsync(id, value, turn.Comment);
+        if (record is not null) turn.Apply(record);
+    }
+
+    private async Task SaveCommentAsync(Turn turn)
+    {
+        if (turn.RecordId is not { } id) return;
+        var record = await History.SetFeedbackAsync(id, Feedback.NotHelpful, turn.CommentDraft);
+        if (record is not null) turn.Apply(record);
     }
 
     private void NewConversation()

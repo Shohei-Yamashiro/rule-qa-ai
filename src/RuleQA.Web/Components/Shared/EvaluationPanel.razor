@@ -1,0 +1,235 @@
+@using RuleQA.Core.Evaluation
+@implements IDisposable
+@inject SearchEvaluator SearchEvaluator
+@inject AnswerEvaluator AnswerEvaluator
+@inject EvaluationLog Log
+@inject EvaluationQuestionSet QuestionSet
+@inject CurrentUser User
+@inject IToastService Toast
+
+<section class="panel" id="evaluation">
+    <h3>評価</h3>
+    <p class="sub">
+        評価用の質問で、検索と回答がどれだけ正しいかを測ります。<strong>保存前の設定</strong>（プロンプト・モデル・候補の数・埋め込みモデル）で実行するので、変更の効果を保存する前に比べられます。評価の質問と回答は履歴には残りません。
+    </p>
+    <p class="sub">
+        質問：@QuestionSet.FilePath（@_questions.Count 問）<br />
+        自社の規則に入れ替えたときは、data フォルダに questions.json（samples の questions.json と同じ形式）を置くと、そちらを使います。正解の条文が取り込んだ規則にない質問は、評価から除きます。
+    </p>
+    <div class="actions" style="margin-top: 0">
+        <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.Search())" Disabled="@(_running || _questions.Count == 0)" OnClick="EvaluateSearchAsync">検索を評価（AI なし）</FluentButton>
+        <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.ChatSparkle())" Disabled="@(_running || _questions.Count == 0 || !HasAi || !User.IsAdmin)" OnClick="EvaluateAnswersAsync">回答を評価（AI を使う）</FluentButton>
+        <AdminBadge />
+        @if (_running)
+        {
+            <FluentProgressRing Width="16px" Style="align-self: center" />
+            <span class="sub" style="align-self: center">@_progress</span>
+            <FluentButton Appearance="Appearance.Lightweight" OnClick="Cancel">中止</FluentButton>
+        }
+    </div>
+    @if (!HasAi)
+    {
+        <p class="sub">回答の評価には AI の接続先が必要です（上の「AI の接続先」で設定してください）。</p>
+    }
+
+    @if (_search is { } s)
+    {
+        <h4>検索の評価（候補 @s.CandidateCount 件@(s.UsedVectors ? "・ベクトルあり" : "")）</h4>
+        <p>
+            正解の条文が候補に入った割合 <strong>@s.AnyRate.ToString("P0")</strong> ・ 1 位が正解 <strong>@s.TopRate.ToString("P0")</strong>
+            <span class="sub">（答えられる質問 @s.Answerable.Count 問@(SkippedText(s.Skipped.Count))）</span>
+        </p>
+        <table class="eval-table eval-rows">
+            <tr><th>ID</th><th>質問</th><th>種類</th><th>結果</th><th>正解の順位</th></tr>
+            @foreach (var row in s.Answerable)
+            {
+                <tr class="@(row.AnyFound ? "" : "ng")">
+                    <td>@row.Question.Id</td>
+                    <td>@row.Question.Question</td>
+                    <td>@row.Question.Kind</td>
+                    <td>@(row.AllFound ? "すべて候補に入った" : row.AnyFound ? "一部が候補に入った" : "候補に入らなかった")</td>
+                    <td>@(row.FirstRank?.ToString() ?? "－")</td>
+                </tr>
+            }
+        </table>
+    }
+
+    @if (_answer is { } a)
+    {
+        <h4>回答の評価（@a.Model・候補 @a.CandidateCount 件@(a.UsedVectors ? "・ベクトルあり" : "")・@(a.CustomInstructions ? "変更したプロンプト" : "既定のプロンプト")）</h4>
+        <div class="eval-summary">
+            <div><span class="sub">根拠の一致</span><strong>@a.CitationRate.ToString("P0")</strong><span class="sub">答えられる @a.Answerable.Count 問</span></div>
+            <div><span class="sub">答えないのが正解の質問</span><strong>@a.NoAnswerRate.ToString("P0")</strong><span class="sub">記載なし・対象外 @a.NoAnswer.Count 問</span></div>
+            @if (a.OffTopic.Count > 0)
+            {
+                <div><span class="sub">対象外の判定</span><strong>@a.OffTopicRate.ToString("P0")</strong><span class="sub">無関係な質問 @a.OffTopic.Count 問</span></div>
+            }
+            <div><span class="sub">検索（正解が候補に）</span><strong>@a.SearchRate.ToString("P0")</strong><span class="sub">1 位が正解 @a.TopRate.ToString("P0")</span></div>
+            <div><span class="sub">答えられるのに答えなかった</span><strong>@a.Missed 件</strong><span class="sub">正解以外も引用 @a.ExtraCitations 件</span></div>
+            <div><span class="sub">エラー・平均時間</span><strong>@a.Errors 件</strong><span class="sub">@((a.AverageMs / 1000.0).ToString("0.0")) 秒／問</span></div>
+        </div>
+        @if (a.Skipped.Count > 0)
+        {
+            <p class="sub">@SkippedText(a.Skipped.Count).TrimStart('・')</p>
+        }
+        <table class="eval-table eval-rows">
+            <tr><th>ID</th><th>質問</th><th>種類</th><th>判定</th><th>引用した条文</th></tr>
+            @foreach (var row in a.Rows)
+            {
+                <tr class="@(row.Correct ? "" : "ng")">
+                    <td>@row.Question.Id</td>
+                    <td>
+                        @row.Question.Question
+                        <details class="eval-answer">
+                            <summary class="sub">回答</summary>
+                            <div class="sub">@StatusBadge.Label(row.Status)：@(row.Error ?? row.Text)</div>
+                            <div class="sub">正解：@(row.Question.Expected.Count == 0 ? (row.Question.OffTopic ? "（対象外）" : "（記載なし）") : string.Join("、", row.Question.Expected))</div>
+                        </details>
+                    </td>
+                    <td>@row.Question.Kind</td>
+                    <td>@row.Verdict</td>
+                    <td>@(row.Cited.Count == 0 ? "－" : string.Join("、", row.Cited))</td>
+                </tr>
+            }
+        </table>
+    }
+
+    <h4>これまでの評価</h4>
+    @if (_runs.Count == 0)
+    {
+        <p class="sub">まだ評価していません。</p>
+    }
+    else
+    {
+        <table class="eval-table eval-runs">
+            <tr><th>日時</th><th>種類</th><th>条件</th><th>検索</th><th>1 位</th><th>根拠の一致</th><th>答えない正解</th><th>対象外</th><th>答えなかった</th><th>エラー</th><th>秒／問</th></tr>
+            @foreach (var run in _runs)
+            {
+                <tr>
+                    <td>@run.AtUtc.ToLocalTime().ToString("MM/dd HH:mm")</td>
+                    <td>@(run.Kind == EvaluationKind.Answer ? "回答" : "検索")</td>
+                    <td>@Conditions(run)</td>
+                    <td>@run.SearchRate.ToString("P0")</td>
+                    <td>@run.TopRate.ToString("P0")</td>
+                    <td>@Rate(run.CitationRate)</td>
+                    <td>@Rate(run.NoAnswerRate)</td>
+                    <td>@Rate(run.OffTopicRate)</td>
+                    <td>@(run.MissedAnswers?.ToString() ?? "－")</td>
+                    <td>@(run.Errors?.ToString() ?? "－")</td>
+                    <td>@(run.AverageMs is { } ms ? (ms / 1000.0).ToString("0.0") : "－")</td>
+                </tr>
+            }
+        </table>
+        <FluentButton Appearance="Appearance.Lightweight" IconStart="@(new Icons.Regular.Size16.Delete())" Disabled="@(_running || !User.IsAdmin)" OnClick="ClearRunsAsync">評価の記録を消す</FluentButton>
+    }
+</section>
+
+@code {
+    /// <summary>The settings as edited on the page (not yet saved).</summary>
+    [Parameter, EditorRequired]
+    public Func<AppSettings> Settings { get; set; } = () => new();
+
+    private IReadOnlyList<EvaluationQuestion> _questions = [];
+    private IReadOnlyList<EvaluationRun> _runs = [];
+    private SearchEvaluationReport? _search;
+    private AnswerEvaluationReport? _answer;
+    private bool _running;
+    private string? _progress;
+    private CancellationTokenSource? _cts;
+
+    private bool HasAi => Settings().Ai is { Provider: AiProvider.OpenAiCompatible } ai && !string.IsNullOrWhiteSpace(ai.Model);
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _questions = QuestionSet.Load();
+        }
+        catch (Exception e)
+        {
+            Toast.ShowError($"評価用の質問を読み込めませんでした（{QuestionSet.FilePath}）: {e.Message}");
+        }
+        _runs = await Log.ListAsync();
+    }
+
+    private async Task EvaluateSearchAsync()
+    {
+        _running = true;
+        _progress = "検索しています…";
+        try
+        {
+            _search = await SearchEvaluator.EvaluateAsync(_questions, Settings());
+            _answer = null;
+            await Log.SaveAsync(_search);
+            _runs = await Log.ListAsync();
+        }
+        catch (Exception e)
+        {
+            Toast.ShowError("評価できませんでした: " + e.Message);
+        }
+        finally
+        {
+            _running = false;
+            _progress = null;
+        }
+    }
+
+    private async Task EvaluateAnswersAsync()
+    {
+        if (!User.IsAdmin) return;
+        _running = true;
+        _cts = new CancellationTokenSource();
+        var progress = new Progress<string>(p =>
+        {
+            _progress = p;
+            InvokeAsync(StateHasChanged);
+        });
+        try
+        {
+            _answer = await AnswerEvaluator.EvaluateAsync(_questions, Settings(), progress, _cts.Token);
+            _search = null;
+            await Log.SaveAsync(_answer);
+            _runs = await Log.ListAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            Toast.ShowInfo("評価を中止しました。");
+        }
+        catch (Exception e)
+        {
+            Toast.ShowError("評価できませんでした: " + e.Message);
+        }
+        finally
+        {
+            _running = false;
+            _progress = null;
+            _cts.Dispose();
+            _cts = null;
+        }
+    }
+
+    private void Cancel() => _cts?.Cancel();
+
+    private async Task ClearRunsAsync()
+    {
+        if (!User.IsAdmin) return;
+        await Log.ClearAsync();
+        _runs = [];
+    }
+
+    private static string SkippedText(int skipped) =>
+        skipped == 0 ? "" : $"・正解の条文が取り込んだ規則にないため {skipped} 問を除外";
+
+    private static string Rate(double? rate) => rate?.ToString("P0") ?? "－";
+
+    private static string Conditions(EvaluationRun run) => string.Join("・", new[]
+    {
+        run.Model,
+        $"候補 {run.CandidateCount}",
+        run.UsedVectors ? "ベクトル" : null,
+        run.Kind == EvaluationKind.Answer ? (run.CustomInstructions ? "プロンプト変更" : "既定のプロンプト") : null,
+        $"{run.Questions} 問",
+    }.Where(x => x is not null));
+
+    public void Dispose() => _cts?.Cancel();
+}

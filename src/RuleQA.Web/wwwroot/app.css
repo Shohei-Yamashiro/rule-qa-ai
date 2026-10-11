@@ -231,6 +231,69 @@ details.import-log summary {
     margin: 0 0 12px;
 }
 
+.feedback {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid #eceef1;
+}
+
+.feedback-comment {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.feedback-comment fluent-text-field {
+    width: 360px;
+}
+
+.feedback-mark {
+    display: inline-flex;
+    vertical-align: middle;
+    margin-right: 4px;
+}
+
+.feedback-rate {
+    align-self: center;
+}
+
+.eval-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 8px;
+    margin: 8px 0 12px;
+}
+
+.eval-summary > div {
+    display: flex;
+    flex-direction: column;
+    padding: 8px 10px;
+    border: 1px solid #e1e3e8;
+    border-radius: 6px;
+}
+
+.eval-summary strong {
+    font-size: 20px;
+}
+
+.eval-rows tr.ng td {
+    background: #fff8f0;
+}
+
+.eval-rows td:nth-child(5) {
+    white-space: normal;
+}
+
+details.eval-answer summary {
+    cursor: pointer;
+}
+
 .doc-reimport {
     display: inline-flex;
     align-items: center;

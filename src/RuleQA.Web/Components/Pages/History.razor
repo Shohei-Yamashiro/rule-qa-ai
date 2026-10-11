@@ -22,6 +22,14 @@
             <FluentButton Appearance="@(_status == status ? Appearance.Accent : Appearance.Outline)" OnClick="() => FilterAsync(status)">@StatusBadge.Label(status) @_counts.GetValueOrDefault(status)</FluentButton>
         }
     </div>
+    <div class="chips">
+        <FluentButton Appearance="@(_feedback == Feedback.Helpful ? Appearance.Accent : Appearance.Outline)" IconStart="@(new Icons.Regular.Size16.ThumbLike())" OnClick="() => FilterFeedbackAsync(Feedback.Helpful)">役に立った @_feedbackCounts.Helpful</FluentButton>
+        <FluentButton Appearance="@(_feedback == Feedback.NotHelpful ? Appearance.Accent : Appearance.Outline)" IconStart="@(new Icons.Regular.Size16.ThumbDislike())" OnClick="() => FilterFeedbackAsync(Feedback.NotHelpful)">役に立たなかった @_feedbackCounts.NotHelpful</FluentButton>
+        @if (_feedbackCounts.HelpfulRate is { } rate)
+        {
+            <span class="sub feedback-rate">評価された回答のうち、役に立った @rate.ToString("P0")</span>
+        }
+    </div>
 </div>
 
 @if (_entries.Count == 0)
@@ -36,6 +44,14 @@
             <summary>
                 <span class="sub history-date">@r.AskedAtUtc.ToLocalTime().ToString("yyyy/MM/dd HH:mm")</span>
                 <StatusBadge Status="r.Status" />
+                @if (r.Feedback == Feedback.Helpful)
+                {
+                    <span class="feedback-mark" title="役に立った"><FluentIcon Value="@(new Icons.Filled.Size16.ThumbLike())" Color="Color.Success" /></span>
+                }
+                else if (r.Feedback == Feedback.NotHelpful)
+                {
+                    <span class="feedback-mark" title="役に立たなかった"><FluentIcon Value="@(new Icons.Filled.Size16.ThumbDislike())" Color="Color.Error" /></span>
+                }
                 <span class="history-question">@r.Question</span>
                 @if (entry.Citations.Count > 0)
                 {
@@ -43,6 +59,10 @@
                 }
             </summary>
             <div class="chat-text history-answer">@r.AnswerText</div>
+            @if (r.FeedbackComment is not null)
+            {
+                <div class="notice">役に立たなかった理由：@r.FeedbackComment</div>
+            }
             @if (r.Error is not null)
             {
                 <div class="sub chat-error">@r.Error</div>
@@ -79,6 +99,8 @@
     private IReadOnlyDictionary<AnswerStatus, int> _counts = new Dictionary<AnswerStatus, int>();
     private string? _text;
     private AnswerStatus? _status;
+    private Feedback? _feedback;
+    private FeedbackCounts _feedbackCounts = new(0, 0);
 
     private int Total => _counts.Values.Sum();
 
@@ -87,7 +109,15 @@
     private async Task LoadAsync()
     {
         _counts = await Records.CountsAsync();
-        _entries = await Records.ListAsync(new HistoryQuery(_text, _status));
+        _feedbackCounts = await Records.FeedbackCountsAsync();
+        _entries = await Records.ListAsync(new HistoryQuery(_text, _status, Feedback: _feedback));
+    }
+
+    /// <summary>Pressing the selected feedback filter again turns it off.</summary>
+    private Task FilterFeedbackAsync(Feedback feedback)
+    {
+        _feedback = _feedback == feedback ? null : feedback;
+        return LoadAsync();
     }
 
     private Task FilterAsync(AnswerStatus? status)

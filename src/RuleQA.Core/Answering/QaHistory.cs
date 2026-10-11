@@ -34,7 +34,16 @@ public sealed record HistoryEntry(QaRecord Record, IReadOnlyList<ArticleRef> Cit
 public sealed record PopularQuestion(string Question, int Count, DateTime LastAskedUtc);
 
 /// <param name="Text">Matched against the question and the answer, ignoring width and case.</param>
-public sealed record HistoryQuery(string? Text = null, AnswerStatus? Status = null, int Limit = 200);
+/// <param name="Feedback">Only records with this feedback.</param>
+public sealed record HistoryQuery(string? Text = null, AnswerStatus? Status = null, int Limit = 200, Feedback? Feedback = null);
+
+public sealed record FeedbackCounts(int Helpful, int NotHelpful)
+{
+    public int Total => Helpful + NotHelpful;
+
+    /// <summary>Share of answers with feedback that were helpful; null when there is none.</summary>
+    public double? HelpfulRate => Total == 0 ? null : (double)Helpful / Total;
+}
 
 /// <summary>Saves questions and answers, and reads them back for the history page and for continuing a conversation.</summary>
 public sealed class QaHistory(IDbContextFactory<RuleQaDbContext> dbFactory, TimeProvider clock)
@@ -70,6 +79,7 @@ public sealed class QaHistory(IDbContextFactory<RuleQaDbContext> dbFactory, Time
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var records = db.QaRecords.AsNoTracking();
         if (query.Status is { } status) records = records.Where(r => r.Status == status);
+        if (query.Feedback is { } feedback) records = records.Where(r => r.Feedback == feedback);
         var list = await records.OrderByDescending(r => r.AskedAtUtc).ThenByDescending(r => r.Id).ToListAsync(ct);
         var text = ArticleIndex.Normalize(query.Text ?? "");
         if (text.Length > 0)
@@ -118,6 +128,28 @@ public sealed class QaHistory(IDbContextFactory<RuleQaDbContext> dbFactory, Time
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var counts = await db.QaRecords.GroupBy(r => r.Status).Select(g => new { g.Key, Count = g.Count() }).ToListAsync(ct);
         return Enum.GetValues<AnswerStatus>().ToDictionary(s => s, s => counts.FirstOrDefault(c => c.Key == s)?.Count ?? 0);
+    }
+
+    /// <summary>Records, changes or (with null) clears the feedback on an answer. The comment is kept only for "not helpful".</summary>
+    /// <returns>The updated record, or null when it no longer exists.</returns>
+    public async Task<QaRecord?> SetFeedbackAsync(int recordId, Feedback? feedback, string? comment = null, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var record = await db.QaRecords.FindAsync([recordId], ct);
+        if (record is null) return null;
+        record.Feedback = feedback;
+        record.FeedbackComment = feedback == Feedback.NotHelpful && !string.IsNullOrWhiteSpace(comment) ? comment.Trim() : null;
+        record.FeedbackAtUtc = feedback is null ? null : clock.GetUtcNow().UtcDateTime;
+        await db.SaveChangesAsync(ct);
+        return record;
+    }
+
+    public async Task<FeedbackCounts> FeedbackCountsAsync(CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return new(
+            await db.QaRecords.CountAsync(r => r.Feedback == Feedback.Helpful, ct),
+            await db.QaRecords.CountAsync(r => r.Feedback == Feedback.NotHelpful, ct));
     }
 
     /// <returns>How many records were deleted.</returns>

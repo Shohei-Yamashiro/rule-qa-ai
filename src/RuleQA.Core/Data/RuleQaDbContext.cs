@@ -9,6 +9,7 @@ public sealed class RuleQaDbContext(DbContextOptions<RuleQaDbContext> options) :
     public DbSet<Article> Articles => Set<Article>();
     public DbSet<QaRecord> QaRecords => Set<QaRecord>();
     public DbSet<ImportLog> ImportLogs => Set<ImportLog>();
+    public DbSet<EvaluationRun> EvaluationRuns => Set<EvaluationRun>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -32,6 +33,13 @@ public sealed class RuleQaDbContext(DbContextOptions<RuleQaDbContext> options) :
             e.HasIndex(r => r.ConversationId);
             e.HasIndex(r => r.AskedAtUtc);
             e.Property(r => r.Status).HasConversion<string>();
+            e.Property(r => r.Feedback).HasConversion<string>();
+        });
+
+        modelBuilder.Entity<EvaluationRun>(e =>
+        {
+            e.HasIndex(r => r.AtUtc);
+            e.Property(r => r.Kind).HasConversion<string>();
         });
 
         modelBuilder.Entity<ImportLog>(e =>

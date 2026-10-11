@@ -1,0 +1,20 @@
+@page "/"
+@inject SettingsStore Store
+
+<PageTitle>質問</PageTitle>
+
+<div class="page-head">
+    <h2>質問</h2>
+</div>
+
+<section class="panel">
+    <p>社内規則についての質問に、根拠の条文を添えて答えるチャットボットです。</p>
+    <p class="sub">規則の取り込みと質問の機能は準備中です。今は <a href="settings">設定</a> で AI の接続先を確かめられます。</p>
+    <p class="sub">現在の設定：@AiStatus</p>
+</section>
+
+@code {
+    private string AiStatus => Store.Current.Ai is { Provider: AiProvider.OpenAiCompatible } ai
+        ? $"AI を使う（{ai.Model}）" + (string.IsNullOrWhiteSpace(ai.EmbeddingModel) ? "" : $"・埋め込みモデル {ai.EmbeddingModel}")
+        : "AI を使わない（検索で見つかった条文を表示）";
+}

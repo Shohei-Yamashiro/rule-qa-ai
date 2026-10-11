@@ -1,0 +1,120 @@
+@page "/settings"
+@inject SettingsStore Store
+@inject AiConnectionTester Tester
+@inject IToastService Toast
+
+<PageTitle>設定</PageTitle>
+
+<div class="page-head settings-head">
+    <h2>設定</h2>
+    <span class="spacer"></span>
+    <span class="sub">変更は「保存」を押すと反映されます</span>
+    <FluentButton Appearance="Appearance.Accent" IconStart="@(new Icons.Regular.Size20.Save())" OnClick="Save">保存</FluentButton>
+</div>
+
+<div class="settings">
+    <section class="panel" id="ai">
+        <h3>AI の接続先</h3>
+        <h4>使う AI</h4>
+        <FluentRadioGroup TValue="AiProvider" @bind-Value="_s.Ai.Provider" Orientation="Orientation.Horizontal">
+            <FluentRadio Value="AiProvider.None">使わない（検索のみ）</FluentRadio>
+            <FluentRadio Value="AiProvider.OpenAiCompatible">OpenAI 互換 API</FluentRadio>
+        </FluentRadioGroup>
+
+        @if (_s.Ai.Provider == AiProvider.OpenAiCompatible)
+        {
+            <h4>接続先とモデル</h4>
+            <p class="sub">Azure OpenAI・OpenAI・Gemini・Ollama・LM Studio など、OpenAI 互換の API に接続できます。プリセットで入力欄を埋めてから調整してください。</p>
+            <div class="presets">
+                @foreach (var p in Presets)
+                {
+                    <FluentButton Appearance="Appearance.Outline" OnClick="@(() => ApplyPreset(p))">@p.Name</FluentButton>
+                }
+            </div>
+            @if (_presetHint is not null)
+            {
+                <p class="sub preset-hint">@_presetHint</p>
+            }
+            <div class="row">
+                <div class="field wide"><FluentTextField Label="エンドポイント" @bind-Value="_s.Ai.Endpoint" /></div>
+                <div class="field"><FluentTextField Label="モデル" @bind-Value="_s.Ai.Model" /></div>
+                <div class="field"><FluentTextField Label="API キー（ローカル LLM なら空欄）" TextFieldType="TextFieldType.Password" @bind-Value="_s.Ai.ApiKey" /></div>
+                <div class="field"><FluentNumberField TValue="int" Label="タイムアウト（秒）" @bind-Value="_s.Ai.TimeoutSeconds" Min="5" /></div>
+                <div class="field" style="align-self: end"><FluentCheckbox Label="JSON スキーマ指定を使う（非対応なら自動で切り替え）" @bind-Value="_s.Ai.UseJsonSchema" /></div>
+            </div>
+
+            <h4>埋め込みモデル（意味検索）</h4>
+            <div class="row">
+                <div class="field"><FluentTextField Label="埋め込みモデル（空欄ならキーワード検索のみ）" Placeholder="例: text-embedding-3-small" @bind-Value="_s.Ai.EmbeddingModel" /></div>
+            </div>
+            <p class="sub">設定すると、言葉が一致しない質問（「有給」と「年次有給休暇」など）も意味の近さで条文を探します。チャットと同じ接続先・API キーを使います（Azure OpenAI ではデプロイ名、Ollama では bge-m3 など）。</p>
+        }
+        else
+        {
+            <p class="sub">AI を使わないときは、質問に近い条文を検索して「該当しそうな条文」として表示します。AI を用意しなくても動作を確認できます。</p>
+        }
+
+        <h4>動作確認</h4>
+        <p class="sub">保存前の設定で、AI に短い質問を 1 回送ります。埋め込みモデルを設定していれば、それも確かめます。</p>
+        <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.PlugConnected())" Disabled="_testing" OnClick="TestAiAsync">接続テスト</FluentButton>
+        @if (_testing)
+        {
+            <FluentProgressRing Width="16px" Style="display: inline-block; margin-left: 8px" />
+        }
+        @if (_testResult is not null)
+        {
+            <div class="test-result">@_testResult</div>
+        }
+    </section>
+
+    <p class="sub">API キーは Windows のユーザーごとに暗号化して保存します。</p>
+</div>
+
+@code {
+    private sealed record Preset(string Name, string Endpoint, string Model, string? Hint = null);
+
+    private static readonly Preset[] Presets =
+    [
+        new("Azure OpenAI", "https://YOUR-RESOURCE.openai.azure.com/openai/v1", "gpt-4.1-mini",
+            "エンドポイントの YOUR-RESOURCE を Azure OpenAI のリソース名に、モデルをデプロイ名に置き換えてください。API キーは Azure ポータルの「キーとエンドポイント」にあります（api-key ヘッダーで送ります）。"),
+        new("OpenAI", "https://api.openai.com/v1", "gpt-4.1-mini"),
+        new("Gemini", "https://generativelanguage.googleapis.com/v1beta/openai", "gemini-2.5-flash"),
+        new("Ollama", "http://localhost:11434/v1", "qwen2.5:7b", "API キーは空欄のままで使えます。事前に ollama pull でモデルを取得してください。"),
+        new("LM Studio", "http://localhost:1234/v1", "", "LM Studio で読み込んだモデル名を入力してください。API キーは空欄で使えます。"),
+    ];
+
+    private AppSettings _s = new();
+    private string? _presetHint;
+    private bool _testing;
+    private string? _testResult;
+
+    protected override void OnInitialized() => _s = Store.Current;
+
+    private void ApplyPreset(Preset p)
+    {
+        _s.Ai.Endpoint = p.Endpoint;
+        _s.Ai.Model = p.Model;
+        _presetHint = p.Hint;
+    }
+
+    private void Save()
+    {
+        _s.Ai.TimeoutSeconds = Math.Max(5, _s.Ai.TimeoutSeconds);
+        Store.Save(_s);
+        Toast.ShowSuccess("設定を保存しました。");
+    }
+
+    private async Task TestAiAsync()
+    {
+        _testing = true;
+        _testResult = null;
+        try
+        {
+            _testResult = await Tester.TestAsync(_s.Copy().Ai, CancellationToken.None);
+        }
+        finally
+        {
+            _testing = false;
+        }
+    }
+}

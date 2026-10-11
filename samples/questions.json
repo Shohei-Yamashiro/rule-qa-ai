@@ -34,5 +34,8 @@
   { "id": "Q33", "question": "給料日はいつですか？", "expected": [], "notInRules": true, "kind": "記載なし", "note": "就業規則第12条は賃金規程に委ねているが、賃金規程は含まれていない" },
   { "id": "Q34", "question": "社員旅行はありますか？", "expected": [], "notInRules": true, "kind": "記載なし", "note": "「旅費」「旅行」が似ている" },
   { "id": "Q35", "question": "ペットを連れて出社できますか", "expected": [], "notInRules": true, "kind": "記載なし" },
-  { "id": "Q36", "question": "退職金はいくらもらえますか", "expected": [], "notInRules": true, "kind": "記載なし" }
+  { "id": "Q36", "question": "退職金はいくらもらえますか", "expected": [], "notInRules": true, "kind": "記載なし" },
+  { "id": "Q37", "question": "明日の天気は？", "expected": [], "notInRules": true, "kind": "対象外", "offTopic": true },
+  { "id": "Q38", "question": "おすすめのラーメン屋を教えて", "expected": [], "notInRules": true, "kind": "対象外", "offTopic": true },
+  { "id": "Q39", "question": "日本の首都はどこですか", "expected": [], "notInRules": true, "kind": "対象外", "offTopic": true }
 ]

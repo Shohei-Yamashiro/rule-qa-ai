@@ -118,6 +118,66 @@ public class QaRecord
     public string? AiName { get; set; }
     public string? Error { get; set; }
     public int ElapsedMs { get; set; }
+
+    /// <summary>Whether the person who asked found the answer helpful; null until they say.</summary>
+    public Feedback? Feedback { get; set; }
+
+    /// <summary>Optional reason given with <see cref="Domain.Feedback.NotHelpful"/>.</summary>
+    public string? FeedbackComment { get; set; }
+
+    public DateTime? FeedbackAtUtc { get; set; }
+}
+
+public enum Feedback
+{
+    Helpful,
+    NotHelpful,
+}
+
+public enum EvaluationKind
+{
+    Search,
+    Answer,
+}
+
+/// <summary>The result of one run over the evaluation questions, kept so runs with different settings can be compared.</summary>
+public class EvaluationRun
+{
+    public int Id { get; set; }
+    public DateTime AtUtc { get; set; }
+    public EvaluationKind Kind { get; set; }
+
+    /// <summary>The chat model, or null for a search evaluation.</summary>
+    public string? Model { get; set; }
+
+    public int CandidateCount { get; set; }
+    public bool UsedVectors { get; set; }
+    public bool CustomInstructions { get; set; }
+
+    /// <summary>Questions evaluated, and questions left out because their expected articles are not in the imported rules.</summary>
+    public int Questions { get; set; }
+    public int Skipped { get; set; }
+
+    /// <summary>Share of answerable questions with an expected article among the candidates.</summary>
+    public double SearchRate { get; set; }
+
+    /// <summary>Share of answerable questions whose first candidate is expected.</summary>
+    public double TopRate { get; set; }
+
+    /// <summary>Share of answerable questions answered with an expected article cited.</summary>
+    public double? CitationRate { get; set; }
+
+    /// <summary>Share of questions the rules do not answer that were not answered (not in the rules or off-topic).</summary>
+    public double? NoAnswerRate { get; set; }
+
+    /// <summary>Share of off-topic questions judged off-topic.</summary>
+    public double? OffTopicRate { get; set; }
+
+    /// <summary>Answerable questions answered "not in the rules" or "off-topic".</summary>
+    public int? MissedAnswers { get; set; }
+
+    public int? Errors { get; set; }
+    public int? AverageMs { get; set; }
 }
 
 public enum ImportMode

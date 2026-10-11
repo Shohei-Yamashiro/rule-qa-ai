@@ -33,6 +33,9 @@ public sealed class AiSettings
 
     /// <summary>Embedding model on the same endpoint for article search; empty uses keyword search only.</summary>
     public string EmbeddingModel { get; set; } = "";
+
+    /// <summary>Edited instructions for answering; empty uses the built-in ones.</summary>
+    public string Instructions { get; set; } = "";
 }
 
 public sealed class RulesSettings

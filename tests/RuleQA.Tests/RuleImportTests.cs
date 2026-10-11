@@ -86,7 +86,7 @@ public sealed class RuleImportTests(ITestOutputHelper output) : IDisposable
     }
 
     [Fact]
-    [Spec(SpecCategories.Evaluation, "評価用の質問セットの正解が実在する", "samples/questions.json の各質問の正解の条文がサンプルの取り込み結果にあり、旧版の条文ではない。記載なしの質問には正解の条文がない。")]
+    [Spec(SpecCategories.Evaluation, "評価用の質問セットの正解が実在する", "samples/questions.json の各質問の正解の条文がサンプルの取り込み結果にあり、旧版の条文ではない。記載なしの質問には正解の条文がない。規則と無関係な質問（対象外）は、答えないのが正解の質問として印を付ける。")]
     public async Task Evaluation_questions_point_to_existing_articles()
     {
         await _services.Get<RuleImporter>().ImportFolderAsync(Samples.RulesFolder);
@@ -94,10 +94,12 @@ public sealed class RuleImportTests(ITestOutputHelper output) : IDisposable
         var questions = Samples.Questions;
 
         Assert.True(questions.Count >= 30);
+        Assert.True(questions.Count(q => q.OffTopic) >= 2);
         Assert.Equal(questions.Count, questions.Select(q => q.Id).Distinct().Count());
         Assert.All(questions, q =>
         {
             Assert.Equal(q.NotInRules, q.Expected.Count == 0);
+            Assert.True(!q.OffTopic || q.NotInRules, $"{q.Id}: 対象外の質問は notInRules も true にする");
             Assert.All(q.Expected, key => Assert.True(articles.TryGetValue(key, out var a) && !a.Document.IsSuperseded, $"{q.Id}: {key} がありません"));
         });
     }

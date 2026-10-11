@@ -150,6 +150,21 @@
         }
     </section>
 
+    <section class="panel" id="prompt">
+        <h3>AI への指示（プロンプト） <AdminBadge /></h3>
+        <p class="sub">回答を作るときに AI に渡す指示です（AI を使うときだけ使います）。変えたら、下の「評価」の「回答を評価」で効果を確かめてから保存できます。</p>
+        <FluentTextArea Rows="12" Resize="TextAreaResize.Vertical" Style="width: 100%" @bind-Value="_s.Ai.Instructions" Disabled="@(!User.IsAdmin)" />
+        <div class="actions" style="margin-top: 4px">
+            <span class="sub" style="align-self: center">@(RuleAnswerService.IsDefaultInstructions(_s.Ai.Instructions) ? "既定の指示です。" : "既定の指示から変更しています（保存すると質問に使います）。")</span>
+            <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.ArrowUndo())" Disabled="@(!User.IsAdmin || RuleAnswerService.IsDefaultInstructions(_s.Ai.Instructions))" OnClick="ResetInstructions">既定に戻す</FluentButton>
+        </div>
+        <h4>常に付け足す指示（編集できません）</h4>
+        <p class="sub">回答の読み取りと根拠の条文の確認に使うため、上の指示の後ろに毎回付けます。</p>
+        <div class="test-result">@RuleAnswerService.FixedInstructions</div>
+    </section>
+
+    <EvaluationPanel Settings="@(() => _s.Copy())" />
+
     <p class="sub">API キーは Windows のユーザーごとに暗号化して保存します。</p>
 </div>
 
@@ -181,6 +196,7 @@
     protected override async Task OnInitializedAsync()
     {
         _s = Store.Current;
+        if (RuleAnswerService.IsDefaultInstructions(_s.Ai.Instructions)) _s.Ai.Instructions = RuleAnswerService.DefaultInstructions;
         await RefreshStatsAsync();
     }
 
@@ -260,6 +276,8 @@
         return line.Length > 80 ? line[..80] + "…" : line;
     }
 
+    private void ResetInstructions() => _s.Ai.Instructions = RuleAnswerService.DefaultInstructions;
+
     private void ApplyPreset(Preset p)
     {
         _s.Ai.Endpoint = p.Endpoint;
@@ -272,7 +290,9 @@
         if (!User.IsAdmin) return;
         _s.Ai.TimeoutSeconds = Math.Max(5, _s.Ai.TimeoutSeconds);
         _s.Rules.CandidateCount = Math.Clamp(_s.Rules.CandidateCount, 1, RuleSearchService.MaxCandidates);
-        Store.Save(_s);
+        var saved = _s.Copy();
+        if (RuleAnswerService.IsDefaultInstructions(saved.Ai.Instructions)) saved.Ai.Instructions = "";
+        Store.Save(saved);
         Toast.ShowSuccess("設定を保存しました。");
     }
 

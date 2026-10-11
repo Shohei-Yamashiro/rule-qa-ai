@@ -1,9 +1,15 @@
 @inherits LayoutComponentBase
+@inject CurrentUser User
 
 <div class="shell">
     <header class="app-header">
         <FluentIcon Value="@(new Icons.Regular.Size24.BookQuestionMark())" Color="Color.Custom" CustomColor="#ffffff" />
         <span class="app-title">社内規則 Q&amp;A</span>
+        <span class="spacer"></span>
+        <span class="user-chip" title="@(User.IsAdmin ? "デモのため、管理者としてログインしている扱いです" : "")">
+            <FluentIcon Value="@(new Icons.Regular.Size16.Person())" Color="Color.Custom" CustomColor="#ffffff" />
+            @User.Name
+        </span>
     </header>
     <nav class="app-nav">
         <FluentNavMenu Width="200" Collapsible="false">

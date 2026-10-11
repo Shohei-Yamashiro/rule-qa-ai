@@ -2,13 +2,15 @@
 @inject QaHistory Records
 @inject NavigationManager Nav
 @inject IDialogService Dialogs
+@inject CurrentUser User
 
 <PageTitle>履歴</PageTitle>
 
 <div class="page-head">
     <h2>履歴</h2>
     <span class="spacer"></span>
-    <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.Delete())" Disabled="@(Total == 0)" OnClick="ClearAsync">履歴をすべて削除</FluentButton>
+    <FluentButton Appearance="Appearance.Outline" IconStart="@(new Icons.Regular.Size16.Delete())" Disabled="@(Total == 0 || !User.IsAdmin)" OnClick="ClearAsync">履歴をすべて削除</FluentButton>
+    <AdminBadge />
 </div>
 
 <div class="history-filters">
@@ -96,6 +98,7 @@
 
     private async Task ClearAsync()
     {
+        if (!User.IsAdmin) return;
         var dialog = await Dialogs.ShowConfirmationAsync($"履歴 {Total} 件をすべて削除します。元に戻せません。よろしいですか？", "削除する", "やめる", "履歴の削除");
         var result = await dialog.Result;
         if (result.Cancelled) return;

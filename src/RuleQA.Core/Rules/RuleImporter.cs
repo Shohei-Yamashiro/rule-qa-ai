@@ -7,7 +7,56 @@ using RuleQA.Core.Settings;
 
 namespace RuleQA.Core.Rules;
 
-public sealed record ImportResult(int Added, int Updated, int Unchanged, int Removed, int KeptVectors, IReadOnlyList<string> Warnings)
+public enum FileChangeKind
+{
+    Added,
+    Changed,
+    Removed,
+    Unchanged,
+}
+
+/// <summary>Article labels ("第5条") that were added, removed or whose heading or text changed.</summary>
+public sealed record ArticleChanges(IReadOnlyList<string> Added, IReadOnlyList<string> Removed, IReadOnlyList<string> Changed)
+{
+    public static readonly ArticleChanges None = new([], [], []);
+
+    public bool Any => Added.Count + Removed.Count + Changed.Count > 0;
+
+    /// <summary>"変更 第5条・第6条／追加 第10条", or "" when nothing changed.</summary>
+    public string Describe()
+    {
+        var parts = new List<string>();
+        if (Changed.Count > 0) parts.Add("変更 " + string.Join("・", Changed));
+        if (Added.Count > 0) parts.Add("追加 " + string.Join("・", Added));
+        if (Removed.Count > 0) parts.Add("削除 " + string.Join("・", Removed));
+        return string.Join("／", parts);
+    }
+}
+
+/// <param name="Path">Relative to the rules folder, with "/" separators.</param>
+public sealed record FileChange(string Path, FileChangeKind Kind, string Title, ArticleChanges Articles)
+{
+    public string KindLabel => Label(Kind);
+
+    public static string Label(FileChangeKind kind) => kind switch
+    {
+        FileChangeKind.Added => "追加",
+        FileChangeKind.Changed => "変更",
+        FileChangeKind.Removed => "削除",
+        _ => "変更なし",
+    };
+}
+
+/// <summary>How the rules folder differs from what is imported.</summary>
+public sealed record FolderCheck(string Folder, bool Exists, IReadOnlyList<FileChange> Files)
+{
+    public IReadOnlyList<FileChange> Pending => Files.Where(f => f.Kind != FileChangeKind.Unchanged).ToList();
+    public bool HasChanges => Pending.Count > 0;
+    public int Count(FileChangeKind kind) => Files.Count(f => f.Kind == kind);
+}
+
+/// <param name="Files">What happened to each file that was imported or removed.</param>
+public sealed record ImportResult(int Added, int Updated, int Unchanged, int Removed, int KeptVectors, IReadOnlyList<string> Warnings, IReadOnlyList<FileChange> Files)
 {
     public int Changed => Added + Updated + Removed;
 }
@@ -24,50 +73,74 @@ public sealed class RuleImporter(IDbContextFactory<RuleQaDbContext> dbFactory, T
     public string ResolveFolder(string folder) =>
         Path.IsPathRooted(folder) ? folder : Path.GetFullPath(Path.Combine(baseDirectory, folder));
 
-    /// <summary>Only files whose content changed are parsed again; vectors are kept for articles whose text did not change.</summary>
-    public async Task<ImportResult> ImportFolderAsync(string folder, CancellationToken ct = default)
+    /// <summary>Compares the folder with the imported documents without changing anything.</summary>
+    public async Task<FolderCheck> CheckAsync(string folder, CancellationToken ct = default)
     {
         var root = ResolveFolder(folder);
-        if (!Directory.Exists(root)) return new(0, 0, 0, 0, 0, [$"フォルダが見つかりません: {root}"]);
+        if (!Directory.Exists(root)) return new(root, false, []);
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        var existing = await db.Documents.AsNoTracking().Include(d => d.Articles).ToDictionaryAsync(d => d.Path, StringComparer.OrdinalIgnoreCase, ct);
+        var changes = new List<FileChange>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in await ReadFolderAsync(root, ct))
+        {
+            seen.Add(file.Path);
+            var old = existing.GetValueOrDefault(file.Path);
+            if (old?.Hash == file.Hash)
+            {
+                changes.Add(new(file.Path, FileChangeKind.Unchanged, old.Title, ArticleChanges.None));
+                continue;
+            }
+            var parsed = file.Parse();
+            changes.Add(new(file.Path, old is null ? FileChangeKind.Added : FileChangeKind.Changed, parsed.Title,
+                old is null ? new(parsed.Articles.Select(a => a.Label).ToList(), [], []) : Compare(old.Articles, parsed.Articles)));
+        }
+        changes.AddRange(existing.Values.Where(d => !seen.Contains(d.Path)).OrderBy(d => d.Path, StringComparer.Ordinal)
+            .Select(d => new FileChange(d.Path, FileChangeKind.Removed, d.Title, new([], d.Articles.OrderBy(a => a.Order).Select(a => a.Label).ToList(), []))));
+        return new(root, true, changes);
+    }
 
-        var files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
-            .Where(f => Extensions.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
-            .Order(StringComparer.Ordinal)
-            .ToList();
+    /// <summary>
+    /// Imports the folder. Vectors are kept for articles whose text did not change, which documents are current is decided
+    /// again, and the import is recorded in the import log.
+    /// </summary>
+    /// <param name="paths">For <see cref="ImportMode.Selected"/>: the relative paths to import (or remove, when the file is gone).</param>
+    public async Task<ImportResult> ImportFolderAsync(string folder, ImportMode mode = ImportMode.Changes, IReadOnlyCollection<string>? paths = null, CancellationToken ct = default)
+    {
+        var root = ResolveFolder(folder);
+        if (!Directory.Exists(root)) return new(0, 0, 0, 0, 0, [$"フォルダが見つかりません: {root}"], []);
+        var selected = new HashSet<string>(paths ?? [], StringComparer.OrdinalIgnoreCase);
+        bool Included(string path) => mode != ImportMode.Selected || selected.Contains(path);
 
         await using var db = await dbFactory.CreateDbContextAsync(ct);
         var existing = await db.Documents.Include(d => d.Articles).ToDictionaryAsync(d => d.Path, StringComparer.OrdinalIgnoreCase, ct);
         var warnings = new List<string>();
-        int added = 0, updated = 0, unchanged = 0, kept = 0;
+        var changes = new List<FileChange>();
+        int unchanged = 0, kept = 0;
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var file in files)
+        foreach (var file in await ReadFolderAsync(root, ct))
         {
-            var path = Path.GetRelativePath(root, file).Replace('\\', '/');
-            seen.Add(path);
-            var bytes = await File.ReadAllBytesAsync(file, ct);
-            var hash = Convert.ToHexString(SHA256.HashData(bytes));
-            var old = existing.GetValueOrDefault(path);
-            if (old?.Hash == hash)
+            seen.Add(file.Path);
+            var old = existing.GetValueOrDefault(file.Path);
+            if (!Included(file.Path) || (old?.Hash == file.Hash && mode is ImportMode.Changes or ImportMode.Initial))
             {
                 unchanged++;
                 continue;
             }
 
-            var (text, encoding) = TextDecoder.Decode(bytes);
-            var parsed = RuleDocumentParser.Parse(path, text);
-            warnings.AddRange(parsed.Warnings.Select(w => $"{path}: {w}"));
-
+            var parsed = file.Parse();
+            warnings.AddRange(parsed.Warnings.Select(w => $"{file.Path}: {w}"));
             var document = new RuleDocument
             {
-                Path = path,
+                Path = file.Path,
                 Title = parsed.Title,
                 BaseTitle = parsed.BaseTitle,
                 Kind = parsed.Kind,
                 EffectiveDate = parsed.EffectiveDate,
                 IsAbolished = parsed.IsAbolished,
-                Encoding = encoding,
-                Hash = hash,
+                Encoding = file.Encoding,
+                Hash = file.Hash,
                 ImportedAtUtc = clock.GetUtcNow().UtcDateTime,
                 Warnings = string.Join("\n", parsed.Warnings),
             };
@@ -84,6 +157,7 @@ public sealed class RuleImporter(IDbContextFactory<RuleQaDbContext> dbFactory, T
 
             if (old is not null)
             {
+                changes.Add(new(file.Path, old.Hash == file.Hash ? FileChangeKind.Unchanged : FileChangeKind.Changed, parsed.Title, Compare(old.Articles, parsed.Articles)));
                 var vectors = old.Articles.Where(a => a.Embedding is not null).ToDictionary(a => a.Key, a => a);
                 foreach (var article in document.Articles)
                 {
@@ -96,21 +170,45 @@ public sealed class RuleImporter(IDbContextFactory<RuleQaDbContext> dbFactory, T
                 }
                 db.Documents.Remove(old);
                 await db.SaveChangesAsync(ct);
-                updated++;
             }
-            else added++;
+            else changes.Add(new(file.Path, FileChangeKind.Added, parsed.Title, new(parsed.Articles.Select(a => a.Label).ToList(), [], [])));
             db.Documents.Add(document);
             await db.SaveChangesAsync(ct);
         }
 
-        var removed = existing.Values.Where(d => !seen.Contains(d.Path)).ToList();
+        var removed = existing.Values.Where(d => !seen.Contains(d.Path) && Included(d.Path)).OrderBy(d => d.Path, StringComparer.Ordinal).ToList();
+        changes.AddRange(removed.Select(d => new FileChange(d.Path, FileChangeKind.Removed, d.Title, new([], d.Articles.OrderBy(a => a.Order).Select(a => a.Label).ToList(), []))));
         db.Documents.RemoveRange(removed);
         await db.SaveChangesAsync(ct);
 
         await MarkSupersededAsync(db, ct);
-        logger.LogInformation("Imported rules from {Folder}: added {Added}, updated {Updated}, unchanged {Unchanged}, removed {Removed}",
-            root, added, updated, unchanged, removed.Count);
-        return new(added, updated, unchanged, removed.Count, kept, warnings);
+        var result = new ImportResult(
+            changes.Count(c => c.Kind == FileChangeKind.Added),
+            changes.Count(c => c.Kind is FileChangeKind.Changed or FileChangeKind.Unchanged),
+            unchanged,
+            removed.Count,
+            kept,
+            warnings,
+            changes);
+        if (result.Changed > 0 || mode != ImportMode.Changes)
+        {
+            db.ImportLogs.Add(new ImportLog
+            {
+                AtUtc = clock.GetUtcNow().UtcDateTime,
+                Mode = mode,
+                Folder = root,
+                Added = result.Added,
+                Updated = result.Updated,
+                Removed = result.Removed,
+                Unchanged = result.Unchanged,
+                Details = string.Join("\n", changes.Select(Describe)),
+                Warnings = string.Join("\n", warnings),
+            });
+            await db.SaveChangesAsync(ct);
+        }
+        logger.LogInformation("Imported rules from {Folder} ({Mode}): added {Added}, updated {Updated}, unchanged {Unchanged}, removed {Removed}",
+            root, mode, result.Added, result.Updated, unchanged, removed.Count);
+        return result;
     }
 
     /// <summary>Imports the folder in the settings when nothing has been imported, so the samples work right after unzipping.</summary>
@@ -120,7 +218,14 @@ public sealed class RuleImporter(IDbContextFactory<RuleQaDbContext> dbFactory, T
         {
             if (await db.Documents.AnyAsync(ct)) return;
         }
-        if (Directory.Exists(ResolveFolder(settings.Folder))) await ImportFolderAsync(settings.Folder, ct);
+        if (Directory.Exists(ResolveFolder(settings.Folder))) await ImportFolderAsync(settings.Folder, ImportMode.Initial, null, ct);
+    }
+
+    /// <summary>The import log, newest first.</summary>
+    public async Task<IReadOnlyList<ImportLog>> LogsAsync(int limit = 50, CancellationToken ct = default)
+    {
+        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        return await db.ImportLogs.AsNoTracking().OrderByDescending(l => l.AtUtc).ThenByDescending(l => l.Id).Take(limit).ToListAsync(ct);
     }
 
     public async Task<LibraryStats> StatsAsync(string? embeddingModel, CancellationToken ct = default)
@@ -135,6 +240,53 @@ public sealed class RuleImporter(IDbContextFactory<RuleQaDbContext> dbFactory, T
             model.Length == 0 ? 0 : await db.Articles.CountAsync(a => a.Embedding != null && a.EmbeddingModel == model, ct),
             await db.Documents.Where(d => !d.IsSuperseded && d.Kind == DocumentKind.Regulation).OrderBy(d => d.Path).Select(d => d.BaseTitle).ToListAsync(ct),
             await db.Documents.MaxAsync(d => (DateTime?)d.ImportedAtUtc, ct));
+    }
+
+    /// <summary>"変更 03_旅費規程.md：変更 第5条／追加 第10条".</summary>
+    private static string Describe(FileChange change)
+    {
+        var kind = change.Kind == FileChangeKind.Unchanged ? "読み直し" : change.KindLabel;
+        var articles = change.Kind switch
+        {
+            FileChangeKind.Added => $"条文 {change.Articles.Added.Count} 件",
+            FileChangeKind.Removed => $"条文 {change.Articles.Removed.Count} 件",
+            _ => change.Articles.Any ? change.Articles.Describe() : "条文の変更なし",
+        };
+        return $"{kind} {change.Path}：{articles}";
+    }
+
+    private static ArticleChanges Compare(IEnumerable<Article> before, IReadOnlyList<ParsedArticle> after)
+    {
+        var old = before.OrderBy(a => a.Order).ToList();
+        var oldByLabel = old.ToDictionary(a => a.Label);
+        var newLabels = after.Select(a => a.Label).ToHashSet();
+        return new(
+            after.Where(a => !oldByLabel.ContainsKey(a.Label)).Select(a => a.Label).ToList(),
+            old.Where(a => !newLabels.Contains(a.Label)).Select(a => a.Label).ToList(),
+            after.Where(a => oldByLabel.TryGetValue(a.Label, out var o) && (o.Heading != a.Heading || o.Body != a.Body || o.Chapter != a.Chapter))
+                .Select(a => a.Label).ToList());
+    }
+
+    private sealed record FolderFile(string Path, byte[] Bytes, string Hash)
+    {
+        private (string Text, string Encoding)? _decoded;
+        private (string Text, string Encoding) Decoded => _decoded ??= TextDecoder.Decode(Bytes);
+
+        public string Encoding => Decoded.Encoding;
+        public ParsedDocument Parse() => RuleDocumentParser.Parse(Path, Decoded.Text);
+    }
+
+    private static async Task<List<FolderFile>> ReadFolderAsync(string root, CancellationToken ct)
+    {
+        var files = new List<FolderFile>();
+        foreach (var file in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories)
+                     .Where(f => Extensions.Contains(System.IO.Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
+                     .Order(StringComparer.Ordinal))
+        {
+            var bytes = await File.ReadAllBytesAsync(file, ct);
+            files.Add(new(System.IO.Path.GetRelativePath(root, file).Replace('\\', '/'), bytes, Convert.ToHexString(SHA256.HashData(bytes))));
+        }
+        return files;
     }
 
     /// <summary>

@@ -53,6 +53,8 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
 
@@ -69,3 +71,10 @@ jobs:
           name: RuleQA-win-x64
           path: artifacts/RuleQA/
           retention-days: 14
+
+      - name: GitHub Release を作成
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v3
+        with:
+          files: artifacts/RuleQA-win-x64.zip
+          generate_release_notes: true

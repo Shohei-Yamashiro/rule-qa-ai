@@ -132,7 +132,8 @@ zip には次の利用者向けの文書も入ります。
 | きっかけ | 内容 |
 |---|---|
 | `main` への push・PR | ビルドとテスト。報告書を成果物 `test-report` に保存。`docs/test-spec.md` が古いと失敗 |
-| `v*` タグの push・手動実行 | 上に加えて、配布物を成果物 `RuleQA-win-x64` に保存 |
+| `workflow_dispatch`（手動実行） | 上に加えて、配布物を成果物 `RuleQA-win-x64` に保存 |
+| `v*` タグの push | 上に加えて、GitHub Release を作り `RuleQA-win-x64.zip` を添付 |
 
 ワークフローで使う公式部品（`actions/checkout` など）は、Dependabot（`.github/dependabot.yml`）が新しい安定版を確認し、版上げの PR を作ります。
 

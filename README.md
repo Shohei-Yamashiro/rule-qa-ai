@@ -3,6 +3,10 @@
 就業規則・旅費規程などの社内規則を条文ごとに取り込み、社員の質問に根拠の条文を添えて答える業務アプリです。
 規則に書かれていないことは「規則には記載がありません」、規則と関係のない質問は「対象外」と答えます。
 
+ライセンスは [MIT](LICENSE) です。著作権表示と許諾表示を残すことを条件に、利用・改変・再配布・商用利用ができます。
+配布用 zip の `LICENSE.txt` には、無保証・免責・有害な利用についての日本語の補足も載せています。
+実行ファイルは、作者が案内する [GitHub Releases](https://github.com/Shohei-Yamashiro/rule-qa-ai/releases) から入手できます（タグを付けたあとに公開されます）。
+
 - **zip を解凍して exe を起動するだけで動作**（インストール不要・.NET 不要・DB サーバー不要）
 - **AI は接続設定式**：Azure OpenAI / OpenAI / Gemini から、Ollama などのローカル LLM まで、OpenAI 互換 API ならどれでも利用可能
 - **AI なしでも動作**：キーワード検索で、質問に近い条文を示す
@@ -111,7 +115,7 @@ zip には次の利用者向けの文書も入ります。
 | zip 内のファイル | 元 |
 |---|---|
 | `README.txt` | `docs/README-distribution.txt` |
-| `LICENSE.txt`（利用条件） | `docs/distribution/LICENSE.txt` |
+| `LICENSE.txt`（MIT と日本語の補足） | `docs/distribution/LICENSE.txt`（ルートの `LICENSE` は GitHub 用の MIT 本文） |
 | `THIRD-PARTY-NOTICES.txt`（外部部品のライセンス表記） | `docs/distribution` の部品一覧とライセンス本文に、NuGet パッケージ内の .NET / ASP.NET Core Runtime の表記を付けて作る |
 | `社内規則Q&A（RuleQA）のご紹介.pdf`（非エンジニア向けの紹介・使い方） | `docs/portfolio/guide.html` を `scripts/build-docs.ps1` が Microsoft Edge で PDF にする |
 
